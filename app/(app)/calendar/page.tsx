@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { addMonths, monthGrid, monthKey, parseMonth, type Month } from "@/lib/calendar";
-import { formatDate, formatTime } from "@/lib/format";
-import { statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
+import { formatDate, formatMoney, formatTime } from "@/lib/format";
+import { resultForSavedGig, statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
 import { createClient } from "@/lib/supabase/server";
 
 // "Today" for the default month and highlight. The server runs in UTC, so
@@ -9,6 +9,9 @@ import { createClient } from "@/lib/supabase/server";
 const TIME_ZONE = "America/Los_Angeles";
 
 type Entry = { gigId: string; title: string; date: string; time: string | null };
+type Money = { takeHome: number; pay: number; services: number };
+/** One gig's services within a list, with its money. */
+type GigGroup = { gigId: string; title: string; entries: Entry[]; money: Money };
 type GigWithServices = GigRow & { gig_services: ServiceRow[] };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -37,10 +40,29 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     )
     .sort((a, b) => (a.date + (a.time ?? "")).localeCompare(b.date + (b.time ?? "")));
 
+  const money = new Map<string, Money>(
+    taken.map((g) => {
+      const r = resultForSavedGig(g, g.gig_services);
+      return [g.id, { takeHome: r.realTakeHome, pay: r.totalPay, services: g.gig_services.length }];
+    }),
+  );
+
   const byDate = new Map<string, Entry[]>();
   for (const e of entries) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
   const inMonth = entries.filter((e) => e.date.startsWith(key));
-  const upcoming = entries.filter((e) => e.date >= today).slice(0, 5);
+  const monthGroups = groupByGig(inMonth, money);
+  // A gig running into another month counts here in proportion to its services this month.
+  const monthTotals = monthGroups.reduce(
+    (t, g) => {
+      const share = g.entries.length / Math.max(g.money.services, 1);
+      return { takeHome: t.takeHome + g.money.takeHome * share, pay: t.pay + g.money.pay * share };
+    },
+    { takeHome: 0, pay: 0 },
+  );
+  const upcomingGroups = groupByGig(
+    entries.filter((e) => e.date >= today),
+    money,
+  ).slice(0, 5);
 
   const label = new Date(Date.UTC(month.year, month.month - 1, 1)).toLocaleDateString("en-US", {
     month: "long",
@@ -121,22 +143,29 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
       <section className="mt-6">
         <h2 className="text-lg font-semibold">This month</h2>
-        {inMonth.length === 0 ? (
+        {monthGroups.length === 0 ? (
           <p className="mt-2 text-sm text-stone-500">Nothing booked in {label}.</p>
         ) : (
-          <EntryList entries={inMonth} />
+          <>
+            <div className="mt-2 rounded-2xl bg-indigo-700 px-4 py-3 text-white">
+              <p className="text-sm text-indigo-200">Take-home in {label}</p>
+              <p className="text-3xl font-bold tabular-nums">{formatMoney(monthTotals.takeHome)}</p>
+              <p className="text-sm text-indigo-100 tabular-nums">from {formatMoney(monthTotals.pay)} pay, after travel</p>
+            </div>
+            <GigList groups={monthGroups} />
+          </>
         )}
       </section>
 
       {key !== monthKey(thisMonth) || inMonth.length === 0 ? (
         <section className="mt-6">
           <h2 className="text-lg font-semibold">Coming up</h2>
-          {upcoming.length === 0 ? (
+          {upcomingGroups.length === 0 ? (
             <p className="mt-2 text-sm text-stone-500">
               No upcoming gigs. Open a gig and tap <strong>Take it</strong> to add it here.
             </p>
           ) : (
-            <EntryList entries={upcoming} />
+            <GigList groups={upcomingGroups} />
           )}
         </section>
       ) : null}
@@ -144,17 +173,41 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   );
 }
 
-function EntryList({ entries }: { entries: Entry[] }) {
+function groupByGig(entries: Entry[], money: Map<string, Money>): GigGroup[] {
+  const groups = new Map<string, GigGroup>();
+  for (const e of entries) {
+    const g = groups.get(e.gigId);
+    if (g) g.entries.push(e);
+    else groups.set(e.gigId, { gigId: e.gigId, title: e.title, entries: [e], money: money.get(e.gigId)! });
+  }
+  return [...groups.values()]; // already in date order of each gig's first service
+}
+
+function GigList({ groups }: { groups: GigGroup[] }) {
   return (
-    <ul className="mt-2 divide-y divide-stone-200 rounded-2xl bg-white px-4 shadow-sm">
-      {entries.map((e, i) => (
-        <li key={i}>
-          <Link href={`/gigs/${e.gigId}`} className="flex items-baseline justify-between gap-3 py-3">
-            <span className="min-w-0">
-              <span className="block truncate font-medium">{e.title}</span>
-              <span className="block text-sm text-stone-500">{formatDate(e.date)}</span>
-            </span>
-            <span className="shrink-0 text-sm text-stone-600">{formatTime(e.time)}</span>
+    <ul className="mt-3 space-y-3">
+      {groups.map((g) => (
+        <li key={g.gigId}>
+          <Link href={`/gigs/${g.gigId}`} className="block rounded-2xl bg-white p-4 shadow-sm active:bg-stone-50">
+            <div className="flex items-start justify-between gap-3">
+              <p className="min-w-0 truncate font-semibold">{g.title}</p>
+              <div className="shrink-0 text-right">
+                <p
+                  className={`text-lg font-bold tabular-nums ${g.money.takeHome < 0 ? "text-red-700" : "text-indigo-700"}`}
+                >
+                  {formatMoney(g.money.takeHome)}
+                </p>
+                <p className="text-xs text-stone-500 tabular-nums">of {formatMoney(g.money.pay)} pay</p>
+              </div>
+            </div>
+            <ul className="mt-2 space-y-1 text-sm text-stone-600">
+              {g.entries.map((e, i) => (
+                <li key={i} className="flex justify-between gap-3">
+                  <span>{formatDate(e.date)}</span>
+                  <span>{formatTime(e.time)}</span>
+                </li>
+              ))}
+            </ul>
           </Link>
         </li>
       ))}
