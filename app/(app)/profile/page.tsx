@@ -22,7 +22,13 @@ export default async function ProfilePage() {
           You only do this once. It&apos;s used to work out travel costs for every gig.
         </p>
       )}
-      <ProfileForm profile={result.profile} />
+      <ProfileForm
+        profile={result.profile}
+        name={result.name}
+        userId={result.userId}
+        email={result.email}
+        avatarUrl={result.avatarUrl}
+      />
     </main>
   );
 }

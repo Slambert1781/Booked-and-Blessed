@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { AddressInput, type AddressValue } from "@/components/AddressInput";
+import { AvatarUpload } from "@/components/AvatarUpload";
 import { VehiclePicker, type Vehicle } from "@/components/VehiclePicker";
 import { US_STATES } from "@/lib/states";
 import { num, type ProfileRow } from "@/lib/types";
@@ -9,7 +10,20 @@ import { saveProfile } from "./actions";
 
 const str = (v: number | string | null | undefined) => (v === null || v === undefined ? "" : String(v));
 
-export function ProfileForm({ profile }: { profile: ProfileRow | null }) {
+export function ProfileForm({
+  profile,
+  name: initialName,
+  userId,
+  email,
+  avatarUrl,
+}: {
+  profile: ProfileRow | null;
+  name: string;
+  userId: string;
+  email: string;
+  avatarUrl: string | null;
+}) {
+  const [name, setName] = useState(initialName);
   const [home, setHome] = useState<AddressValue>({
     address: profile?.home_address ?? "",
     lat: profile?.home_lat ?? null,
@@ -39,6 +53,7 @@ export function ProfileForm({ profile }: { profile: ProfileRow | null }) {
     setError(null);
     startTransition(async () => {
       const result = await saveProfile({
+        name,
         homeAddress: home.address,
         homeLat: home.lat,
         homeLng: home.lng,
@@ -59,6 +74,20 @@ export function ProfileForm({ profile }: { profile: ProfileRow | null }) {
 
   return (
     <form onSubmit={submit} className="mt-6 space-y-8">
+      <section className="space-y-4">
+        <AvatarUpload userId={userId} url={avatarUrl} name={name} email={email} />
+        <label className="block">
+          <span className="block text-sm font-medium">Your name</span>
+          <input
+            className="field mt-1"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
+            placeholder="e.g. Sarah Lambert"
+          />
+        </label>
+      </section>
+
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Home</h2>
         <AddressInput

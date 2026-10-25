@@ -22,12 +22,7 @@ export default async function Home() {
 
   return (
     <main className="mx-auto max-w-md px-4 pb-28 pt-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Your gigs</h1>
-        <Link href="/profile" className="text-sm text-indigo-700">
-          Profile
-        </Link>
-      </header>
+      <h1 className="text-2xl font-semibold">Your gigs</h1>
 
       {!gigs?.length ? (
         <div className="mt-10 rounded-2xl bg-white p-6 text-center shadow-sm">
@@ -70,11 +65,7 @@ export default async function Home() {
         </ul>
       )}
 
-      <form action="/auth/sign-out" method="post" className="mt-10 text-center">
-        <button className="text-sm text-stone-500">Sign out</button>
-      </form>
-
-      <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-stone-50 via-stone-50 to-transparent px-4 pb-6 pt-8">
+      <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-stone-50 via-stone-50 to-transparent px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8 lg:left-80">
         <Link href="/gigs/new" className="btn-primary mx-auto block max-w-md text-center text-lg shadow-lg">
           + New gig
         </Link>

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 export type ProfileInput = {
+  name: string;
   homeAddress: string;
   homeLat: number | null;
   homeLng: number | null;
@@ -59,6 +60,11 @@ export async function saveProfile(input: ProfileInput): Promise<{ error: string 
     driving_rate: drivingRate,
   });
   if (error) return { error: "Couldn't save your profile. Please try again." };
+
+  const name = input.name.trim();
+  if (name !== String(user.user_metadata?.full_name ?? "")) {
+    await supabase.auth.updateUser({ data: { full_name: name } });
+  }
 
   redirect("/");
 }
