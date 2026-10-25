@@ -287,7 +287,7 @@ export function GigForm({ profile, gas }: { profile: CalcProfile; gas: GasPrice 
         {gas && !gasEdited && (
           <p className="text-xs text-stone-500">
             {gas.kind === "state" ? "State" : gas.kind === "region" ? "Regional" : "National"} average for{" "}
-            {gas.areaName}, week of {formatDate(gas.periodDate, { year: "numeric" })} (U.S. EIA)
+            {gas.areaName}, week of {formatDate(gas.periodDate, { weekday: undefined, year: "numeric" })} (U.S. EIA)
           </p>
         )}
         {gas && gasEdited && (
