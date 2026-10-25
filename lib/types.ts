@@ -1,0 +1,28 @@
+// Row shapes as returned by Supabase. numeric columns come back as numbers or
+// strings depending on size, so read them with num().
+export type ProfileRow = {
+  user_id: string;
+  home_address: string | null;
+  home_lat: number | null;
+  home_lng: number | null;
+  home_state: string | null;
+  vehicle_year: number | null;
+  vehicle_make: string | null;
+  vehicle_model: string | null;
+  vehicle_option: string | null;
+  fueleconomy_id: number | null;
+  mpg: number | string | null;
+  mpg_is_manual: boolean;
+  playing_rate: number | string | null;
+  driving_rate: number | string | null;
+};
+
+export function num(v: number | string | null | undefined): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function isProfileComplete(p: ProfileRow | null): boolean {
+  return !!p && !!p.home_address && !!p.home_state && num(p.mpg) !== null && num(p.playing_rate) !== null;
+}
