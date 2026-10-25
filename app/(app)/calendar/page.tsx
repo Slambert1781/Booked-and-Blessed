@@ -1,0 +1,163 @@
+import Link from "next/link";
+import { addMonths, monthGrid, monthKey, parseMonth, type Month } from "@/lib/calendar";
+import { formatDate, formatTime } from "@/lib/format";
+import { statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
+import { createClient } from "@/lib/supabase/server";
+
+// "Today" for the default month and highlight. The server runs in UTC, so
+// pick the family's local zone instead.
+const TIME_ZONE = "America/Los_Angeles";
+
+type Entry = { gigId: string; title: string; date: string; time: string | null };
+type GigWithServices = GigRow & { gig_services: ServiceRow[] };
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: TIME_ZONE }); // YYYY-MM-DD
+  const thisMonth: Month = { year: Number(today.slice(0, 4)), month: Number(today.slice(5, 7)) };
+  const month = parseMonth((await searchParams).month, thisMonth);
+  const key = monthKey(month);
+
+  const supabase = await createClient();
+  const { data: gigs } = await supabase
+    .from("gigs")
+    .select("*, gig_services(id, service_date, start_time)")
+    .returns<GigWithServices[]>();
+
+  const taken = (gigs ?? []).filter((g) => statusOf(g) === "taken");
+  const entries: Entry[] = taken
+    .flatMap((g) =>
+      g.gig_services.map((s) => ({
+        gigId: g.id,
+        title: g.title || g.venue_address.split(",")[0],
+        date: s.service_date,
+        time: s.start_time,
+      })),
+    )
+    .sort((a, b) => (a.date + (a.time ?? "")).localeCompare(b.date + (b.time ?? "")));
+
+  const byDate = new Map<string, Entry[]>();
+  for (const e of entries) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
+  const inMonth = entries.filter((e) => e.date.startsWith(key));
+  const upcoming = entries.filter((e) => e.date >= today).slice(0, 5);
+
+  const label = new Date(Date.UTC(month.year, month.month - 1, 1)).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+
+  return (
+    <main className="mx-auto max-w-md px-4 pb-16 pt-6 lg:max-w-4xl">
+      <h1 className="text-2xl font-semibold">Calendar</h1>
+      <p className="mt-1 text-sm text-stone-600">Rehearsals and concerts for gigs you&apos;ve taken.</p>
+
+      <div className="mt-5 flex items-center justify-between">
+        <Link href={`/calendar?month=${monthKey(addMonths(month, -1))}`} className="btn-secondary px-3 py-2" aria-label="Previous month">
+          ‹
+        </Link>
+        <div className="text-center">
+          <p className="text-lg font-semibold">{label}</p>
+          {key !== monthKey(thisMonth) && (
+            <Link href="/calendar" className="text-xs text-indigo-700">
+              Back to this month
+            </Link>
+          )}
+        </div>
+        <Link href={`/calendar?month=${monthKey(addMonths(month, 1))}`} className="btn-secondary px-3 py-2" aria-label="Next month">
+          ›
+        </Link>
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm">
+        <div className="grid grid-cols-7 border-b border-stone-200 text-center text-xs font-medium text-stone-500">
+          {WEEKDAYS.map((d) => (
+            <div key={d} className="py-2">
+              {d}
+            </div>
+          ))}
+        </div>
+        {monthGrid(month).map((week, i) => (
+          <div key={i} className="grid grid-cols-7 border-b border-stone-100 last:border-b-0">
+            {week.map((date, j) => {
+              const items = date ? (byDate.get(date) ?? []) : [];
+              const isToday = date === today;
+              return (
+                <div key={j} className={`min-h-14 border-r border-stone-100 p-1 last:border-r-0 lg:min-h-24 ${date ? "" : "bg-stone-50"}`}>
+                  {date && (
+                    <>
+                      <span
+                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${isToday ? "bg-indigo-700 font-semibold text-white" : "text-stone-700"}`}
+                      >
+                        {Number(date.slice(8))}
+                      </span>
+                      {/* Phones: a dot per service. Wider screens: the gig name. */}
+                      <div className="mt-0.5 flex flex-wrap gap-0.5 lg:hidden">
+                        {items.map((e, k) => (
+                          <span key={k} className="h-2 w-2 rounded-full bg-emerald-600" />
+                        ))}
+                      </div>
+                      <div className="hidden space-y-0.5 lg:block">
+                        {items.map((e, k) => (
+                          <Link
+                            key={k}
+                            href={`/gigs/${e.gigId}`}
+                            className="block truncate rounded bg-emerald-100 px-1 py-0.5 text-xs text-emerald-900"
+                          >
+                            {e.time ? `${formatTime(e.time)} ` : ""}
+                            {e.title}
+                          </Link>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      <section className="mt-6">
+        <h2 className="text-lg font-semibold">This month</h2>
+        {inMonth.length === 0 ? (
+          <p className="mt-2 text-sm text-stone-500">Nothing booked in {label}.</p>
+        ) : (
+          <EntryList entries={inMonth} />
+        )}
+      </section>
+
+      {key !== monthKey(thisMonth) || inMonth.length === 0 ? (
+        <section className="mt-6">
+          <h2 className="text-lg font-semibold">Coming up</h2>
+          {upcoming.length === 0 ? (
+            <p className="mt-2 text-sm text-stone-500">
+              No upcoming gigs. Open a gig and tap <strong>Take it</strong> to add it here.
+            </p>
+          ) : (
+            <EntryList entries={upcoming} />
+          )}
+        </section>
+      ) : null}
+    </main>
+  );
+}
+
+function EntryList({ entries }: { entries: Entry[] }) {
+  return (
+    <ul className="mt-2 divide-y divide-stone-200 rounded-2xl bg-white px-4 shadow-sm">
+      {entries.map((e, i) => (
+        <li key={i}>
+          <Link href={`/gigs/${e.gigId}`} className="flex items-baseline justify-between gap-3 py-3">
+            <span className="min-w-0">
+              <span className="block truncate font-medium">{e.title}</span>
+              <span className="block text-sm text-stone-500">{formatDate(e.date)}</span>
+            </span>
+            <span className="shrink-0 text-sm text-stone-600">{formatTime(e.time)}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}

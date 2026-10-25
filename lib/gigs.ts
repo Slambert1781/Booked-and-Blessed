@@ -1,6 +1,19 @@
 import { calculateGig, type CalcGig, type GigResult } from "@/lib/calculateGig";
 import { num } from "@/lib/types";
 
+export type GigStatus = "undecided" | "taken" | "declined";
+export const GIG_STATUSES: GigStatus[] = ["undecided", "taken", "declined"];
+
+export const STATUS_LABEL: Record<GigStatus, string> = {
+  undecided: "Undecided",
+  taken: "Taken",
+  declined: "Declined",
+};
+
+/** Older rows (before the status column existed) count as undecided. */
+export const statusOf = (gig: { status?: string | null }): GigStatus =>
+  gig.status === "taken" || gig.status === "declined" ? gig.status : "undecided";
+
 type Numeric = number | string | null;
 
 export type GigRow = {
@@ -30,6 +43,8 @@ export type GigRow = {
   mpg_used: Numeric;
   playing_rate_used: Numeric;
   driving_rate_used: Numeric;
+  status?: GigStatus | null;
+  decided_at?: string | null;
   created_at: string;
 };
 

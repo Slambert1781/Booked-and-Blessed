@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ResultBreakdown } from "@/components/ResultBreakdown";
 import { formatDate, formatMiles, formatMoney, formatTime } from "@/lib/format";
-import { resultForSavedGig, type GigRow, type ServiceRow } from "@/lib/gigs";
+import { resultForSavedGig, statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
 import { createClient } from "@/lib/supabase/server";
 import { num } from "@/lib/types";
 import { deleteGig } from "./actions";
+import { DecisionButtons } from "./DecisionButtons";
 
 export default async function GigResultPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -44,6 +45,10 @@ export default async function GigResultPage({ params }: { params: Promise<{ id: 
       <div className="mt-6">
         <ResultBreakdown result={result} />
       </div>
+
+      <section className="mt-6">
+        <DecisionButtons gigId={gig.id} status={statusOf(gig)} />
+      </section>
 
       <section className="mt-8">
         <h2 className="text-lg font-semibold">Schedule</h2>
