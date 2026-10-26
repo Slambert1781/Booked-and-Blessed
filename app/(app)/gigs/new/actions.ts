@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { oneWayDrive } from "@/lib/google/routes";
 import { getProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
+import { GIG_STATUSES, type GigStatus } from "@/lib/gigs";
 import { isProfileComplete, num } from "@/lib/types";
 
 type Place = { address: string; lat: number | null; lng: number | null };
@@ -42,6 +43,8 @@ export type GigInput = {
   gasPrice: string;
   gasPriceSource: string;
   gasPriceDate: string | null;
+  /** Optional decision; no choice saves as undecided. */
+  status: GigStatus | null;
 };
 
 /** Blank -> null; otherwise a non-negative number or NaN (invalid). */
@@ -86,6 +89,8 @@ export async function createGig(input: GigInput): Promise<{ error: string } | vo
     return { error: "Enter the miles and drive time each way." };
   if (gas === null || Number.isNaN(gas) || gas === 0) return { error: "Enter the gas price per gallon." };
 
+  const status: GigStatus = input.status && GIG_STATUSES.includes(input.status) ? input.status : "undecided";
+
   const supabase = await createClient();
   const { data: gig, error } = await supabase
     .from("gigs")
@@ -116,6 +121,8 @@ export async function createGig(input: GigInput): Promise<{ error: string } | vo
       mpg_used: num(profile!.mpg),
       playing_rate_used: num(profile!.playing_rate),
       driving_rate_used: num(profile!.driving_rate),
+      status,
+      decided_at: status === "undecided" ? null : new Date().toISOString(),
     })
     .select("id")
     .single();

@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { AddressInput, type AddressValue } from "@/components/AddressInput";
+import { DecisionPicker } from "@/components/DecisionPicker";
 import { ResultBreakdown } from "@/components/ResultBreakdown";
 import { calculateGig, type CalcProfile } from "@/lib/calculateGig";
 import type { GasPrice } from "@/lib/eia/gasPrice";
 import { formatDate } from "@/lib/format";
+import type { GigStatus } from "@/lib/gigs";
 import { createGig, lookupDrive } from "./actions";
 
 type Service = { date: string; time: string };
@@ -47,6 +49,7 @@ export function GigForm({ profile, gas }: { profile: CalcProfile; gas: GasPrice 
   const [gasPrice, setGasPrice] = useState(gas ? String(gas.price) : "");
   const [gasEdited, setGasEdited] = useState(!gas);
 
+  const [status, setStatus] = useState<GigStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -129,6 +132,7 @@ export function GigForm({ profile, gas }: { profile: CalcProfile; gas: GasPrice 
         gasPrice,
         gasPriceSource: gas && !gasEdited ? gas.areaName : "Entered by hand",
         gasPriceDate: gas && !gasEdited ? gas.periodDate : null,
+        status,
       });
       if (r?.error) setError(r.error);
     });
@@ -316,9 +320,16 @@ export function GigForm({ profile, gas }: { profile: CalcProfile; gas: GasPrice 
         </section>
       )}
 
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">Your decision</h2>
+        <p className="text-sm text-stone-600">Optional. You can decide later from the gig&apos;s page.</p>
+        <DecisionPicker value={status} onChange={setStatus} allowNone />
+        {status === "taken" && <p className="text-sm text-emerald-800">It&apos;ll go on your calendar when you save.</p>}
+      </section>
+
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-red-800">{error}</p>}
       <button type="submit" className="btn-primary sticky bottom-4 w-full shadow-lg" disabled={pending}>
-        {pending ? "Saving…" : "Save gig"}
+        {pending ? "Saving…" : status === "taken" ? "Save and book it" : status === "declined" ? "Save as declined" : "Save gig"}
       </button>
     </form>
   );

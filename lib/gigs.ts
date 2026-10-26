@@ -6,7 +6,7 @@ export const GIG_STATUSES: GigStatus[] = ["undecided", "taken", "declined"];
 
 export const STATUS_LABEL: Record<GigStatus, string> = {
   undecided: "Undecided",
-  taken: "Taken",
+  taken: "Booked",
   declined: "Declined",
 };
 

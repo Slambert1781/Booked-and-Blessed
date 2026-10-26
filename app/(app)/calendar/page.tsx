@@ -73,7 +73,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   return (
     <main className="mx-auto max-w-md px-4 pb-16 pt-6 lg:max-w-4xl">
       <h1 className="text-2xl font-semibold">Calendar</h1>
-      <p className="mt-1 text-sm text-stone-600">Rehearsals and concerts for gigs you&apos;ve taken.</p>
+      <p className="mt-1 text-sm text-stone-600">Rehearsals and concerts for gigs you&apos;ve booked.</p>
 
       <div className="mt-5 flex items-center justify-between">
         <Link href={`/calendar?month=${monthKey(addMonths(month, -1))}`} className="btn-secondary px-3 py-2" aria-label="Previous month">
@@ -162,7 +162,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           <h2 className="text-lg font-semibold">Coming up</h2>
           {upcomingGroups.length === 0 ? (
             <p className="mt-2 text-sm text-stone-500">
-              No upcoming gigs. Open a gig and tap <strong>Take it</strong> to add it here.
+              No upcoming gigs. Open a gig and tap <strong>Book it</strong> to add it here.
             </p>
           ) : (
             <GigList groups={upcomingGroups} />
