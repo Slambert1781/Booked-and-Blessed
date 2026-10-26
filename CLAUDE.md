@@ -144,4 +144,6 @@ Every user table has `user_id` → `auth.users` and owner-only RLS policies.
 ## Not in Version 1.0
 
 Phone calendar sync, cartage pay, teaching gigs, AI-recommended client tiers,
-location-based gas prices from a paid source.
+location-based gas prices from a paid source, and AI that reads a gig offer
+(a forwarded email or a calendar invite) and fills in a new gig for the user
+to check before saving.
