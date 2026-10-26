@@ -11,6 +11,7 @@ export type GasSource = { areaName: string; periodDate: string | null; kind?: "s
 /** Everything the gig form edits, as the strings its inputs hold. */
 export type GigFormValues = {
   title: string;
+  clientId: string | null;
   gigType: "orchestra" | "flat_fee";
   venue: AddressValue;
   feePerService: string;
@@ -48,6 +49,7 @@ export function gigToFormValues(gig: GigRow, services: ServiceRow[], mode: "edit
   const hand = !gig.gas_price_source || gig.gas_price_source === "Entered by hand";
   return {
     title: gig.title ?? "",
+    clientId: gig.client_id ?? null,
     gigType: gig.gig_type,
     venue: { address: gig.venue_address, lat: gig.venue_lat, lng: gig.venue_lng, state: null },
     feePerService: str(gig.fee_per_service),

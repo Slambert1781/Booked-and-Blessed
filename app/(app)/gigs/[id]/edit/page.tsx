@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getGasPrice, type GasPrice } from "@/lib/eia/gasPrice";
+import { relationshipSettingsFrom } from "@/lib/clients";
+import { listClients } from "@/lib/clientsServer";
 import { gigToFormValues } from "@/lib/gigForm";
 import { settingsFrom } from "@/lib/gigs";
 import { loadGig } from "@/lib/loadGig";
@@ -10,7 +12,7 @@ import { GigForm } from "../../new/GigForm";
 
 export default async function EditGigPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [loaded, me] = await Promise.all([loadGig(id), getProfile()]);
+  const [loaded, me, clients] = await Promise.all([loadGig(id), getProfile(), listClients()]);
   if (!loaded) notFound();
   const { gig, services } = loaded;
 
@@ -40,6 +42,8 @@ export default async function EditGigPage({ params }: { params: Promise<{ id: st
           ...settingsFrom(me?.profile),
         }}
         defaultServiceHours={num(me?.profile?.default_service_hours ?? null) ?? undefined}
+        clients={clients}
+        relationship={relationshipSettingsFrom(me?.profile)}
         gas={gas}
         initial={gigToFormValues(gig, services, "edit")}
         mode={{ kind: "edit", gigId: id }}

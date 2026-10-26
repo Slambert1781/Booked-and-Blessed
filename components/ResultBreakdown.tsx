@@ -1,15 +1,16 @@
 import type { GigResult } from "@/lib/calculateGig";
+import type { VerdictResult } from "@/lib/relationships";
 import { formatHours, formatMiles, formatMoney } from "@/lib/format";
 
 // The result screen's breakdown. Used for the live preview and saved gigs.
 export function ResultBreakdown({
   result,
-  minHourlyRate,
+  verdict,
   taxRatePct,
   pensionPct,
 }: {
   result: GigResult;
-  minHourlyRate?: number | null;
+  verdict?: VerdictResult | null;
   taxRatePct?: number | null;
   pensionPct?: number | null;
 }) {
@@ -27,7 +28,7 @@ export function ResultBreakdown({
         </p>
       </div>
 
-      <HourlyRate result={r} minHourlyRate={minHourlyRate ?? null} />
+      <HourlyRate result={r} verdict={verdict ?? null} />
 
       <dl className="divide-y divide-stone-200 rounded-2xl bg-white px-4 shadow-sm">
         <Row label="Total pay" value={formatMoney(r.totalPay)} />
@@ -123,37 +124,38 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function HourlyRate({ result: r, minHourlyRate }: { result: GigResult; minHourlyRate: number | null }) {
-  if (r.realHourlyRate === null) {
-    return (
-      <p className="rounded-2xl bg-white px-4 py-3 text-sm text-stone-500 shadow-sm">
-        Add how many hours each service lasts to see your real hourly rate.
-      </p>
-    );
-  }
-  const verdict =
-    r.meetsMinimum === null ? null : r.meetsMinimum ? (
-      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900">
-        ✓ Above your {formatMoney(minHourlyRate!)}/hr minimum
-      </span>
-    ) : (
-      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-900">
-        ✗ Below your {formatMoney(minHourlyRate!)}/hr minimum
-      </span>
-    );
+const VERDICT_STYLE = {
+  green: { box: "border-emerald-300 bg-emerald-50", chip: "bg-emerald-600 text-white", label: "Worth it" },
+  yellow: { box: "border-amber-300 bg-amber-50", chip: "bg-amber-400 text-amber-950", label: "Close call" },
+  red: { box: "border-red-300 bg-red-50", chip: "bg-red-600 text-white", label: "Not worth it" },
+} as const;
+
+function HourlyRate({ result: r, verdict }: { result: GigResult; verdict: VerdictResult | null }) {
+  const style = verdict ? VERDICT_STYLE[verdict.verdict] : null;
   return (
-    <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p>
-          <span className="text-2xl font-bold tabular-nums">{formatMoney(r.realHourlyRate)}</span>
-          <span className="text-stone-600">/hr real</span>
+    <div className={`rounded-2xl border px-4 py-3 shadow-sm ${style ? style.box : "border-transparent bg-white"}`}>
+      {r.realHourlyRate !== null ? (
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p>
+            <span className="text-2xl font-bold tabular-nums">{formatMoney(r.realHourlyRate)}</span>
+            <span className="text-stone-600">/hr real</span>
+          </p>
+          {style && <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${style.chip}`}>{style.label}</span>}
+        </div>
+      ) : (
+        style && <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${style.chip}`}>{style.label}</span>
+      )}
+      {verdict && <p className="mt-2 text-sm text-stone-800">{verdict.explanation}</p>}
+      {r.realHourlyRate !== null ? (
+        <p className="mt-1 text-xs text-stone-500">
+          Over {formatHours(r.totalHours)}: {formatHours(r.playingHours)} playing + {formatHours(r.totalDriveHours)}{" "}
+          driving, after gas and lodging.
         </p>
-        {verdict}
-      </div>
-      <p className="mt-1 text-xs text-stone-500">
-        Over {formatHours(r.totalHours)}: {formatHours(r.playingHours)} playing + {formatHours(r.totalDriveHours)}{" "}
-        driving, after gas and lodging.
-      </p>
+      ) : (
+        <p className="mt-1 text-sm text-stone-500">
+          Add how many hours each service lasts to see your real hourly rate.
+        </p>
+      )}
     </div>
   );
 }

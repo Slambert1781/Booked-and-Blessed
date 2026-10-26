@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { AddressInput, type AddressValue } from "@/components/AddressInput";
+import { ClientPicker } from "@/components/ClientPicker";
 import { DecisionPicker } from "@/components/DecisionPicker";
 import { ResultBreakdown } from "@/components/ResultBreakdown";
 import { calculateGig, type CalcProfile } from "@/lib/calculateGig";
+import { verdictFor, type ClientSummary, type RelationshipSettings } from "@/lib/clients";
 import type { GasPrice } from "@/lib/eia/gasPrice";
 import { formatDate } from "@/lib/format";
 import type { GigStatus } from "@/lib/gigs";
@@ -31,6 +33,8 @@ export function GigForm({
   initial,
   mode = { kind: "new" },
   defaultServiceHours,
+  clients,
+  relationship,
 }: {
   profile: CalcProfile;
   /** Today's EIA average (null if unavailable). */
@@ -40,11 +44,16 @@ export function GigForm({
   mode?: GigFormMode;
   /** Pre-filled length for new services. */
   defaultServiceHours?: number;
+  clients: ClientSummary[];
+  relationship: RelationshipSettings;
 }) {
   const defaultHours = String(defaultServiceHours ?? 2.5);
   const todaysGas: GasSource = gas ? { areaName: gas.areaName, periodDate: gas.periodDate, kind: gas.kind } : null;
 
   const [title, setTitle] = useState(initial?.title ?? "");
+  const [client, setClient] = useState<ClientSummary | null>(
+    clients.find((c) => c.id === initial?.clientId) ?? null,
+  );
   const [gigType, setGigType] = useState<"orchestra" | "flat_fee">(initial?.gigType ?? "orchestra");
   const [venue, setVenue] = useState<AddressValue>(initial?.venue ?? { address: "", lat: null, lng: null, state: null });
   const [feePerService, setFeePerService] = useState(initial?.feePerService ?? "");
@@ -146,12 +155,25 @@ export function GigForm({
     isUnion, pensionPct,
   ]);
 
+  const verdict = useMemo(
+    () =>
+      preview &&
+      verdictFor(
+        preview,
+        services.map((s) => s.date).filter(Boolean),
+        client,
+        relationship,
+      ),
+    [preview, services, client, relationship],
+  );
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
       const input = {
         title,
+        clientId: client?.id ?? null,
         gigType,
         venue: { address: venue.address, lat: venue.lat, lng: venue.lng },
         feePerService,
@@ -204,6 +226,8 @@ export function GigForm({
             </button>
           ))}
         </div>
+
+        <ClientPicker clients={clients} value={client?.id ?? null} onChange={setClient} />
 
         <TextField label="Gig name (optional)" value={title} onChange={setTitle} placeholder="e.g. Messiah with Hill Country Symphony" />
 
@@ -411,7 +435,7 @@ export function GigForm({
           <h2 className="text-lg font-semibold">The real pay</h2>
           <ResultBreakdown
             result={preview}
-            minHourlyRate={profile.minHourlyRate}
+            verdict={verdict}
             taxRatePct={profile.taxRatePct}
             pensionPct={isUnion ? parse(pensionPct) : null}
           />

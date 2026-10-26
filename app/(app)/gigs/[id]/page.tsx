@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 import { ResultBreakdown } from "@/components/ResultBreakdown";
 import { formatDate, formatHours, formatMiles, formatMoney, formatTime } from "@/lib/format";
 import { resultForSavedGig, settingsFrom, statusOf } from "@/lib/gigs";
+import { relationshipSettingsFrom, verdictFor, KIND_LABEL } from "@/lib/clients";
+import { getClient } from "@/lib/clientsServer";
 import { loadGig } from "@/lib/loadGig";
+import { TIER_LABEL } from "@/lib/relationships";
 import { getProfile } from "@/lib/profile";
 import { num } from "@/lib/types";
 import { deleteGig } from "./actions";
@@ -24,6 +27,13 @@ export default async function GigResultPage({
 
   const settings = settingsFrom(me?.profile);
   const result = resultForSavedGig(gig, services, settings);
+  const client = await getClient(gig.client_id);
+  const verdict = verdictFor(
+    result,
+    services.map((s) => s.service_date),
+    client,
+    relationshipSettingsFrom(me?.profile),
+  );
   const gasPrice = num(gig.gas_price) ?? 0;
 
   return (
@@ -33,6 +43,11 @@ export default async function GigResultPage({
       </Link>
       <h1 className="mt-2 text-2xl font-semibold">{gig.title || gig.venue_address}</h1>
       {gig.title && <p className="text-stone-600">{gig.venue_address}</p>}
+      {client && (
+        <Link href={`/clients/${client.id}`} className="mt-1 inline-block text-sm text-indigo-700">
+          {client.name} · {KIND_LABEL[client.kind]} · {TIER_LABEL[client.tier]}
+        </Link>
+      )}
       <p className="mt-1 text-sm text-stone-500">
         {gig.gig_type === "orchestra"
           ? `Orchestra · ${gig.number_of_services} services at ${formatMoney(num(gig.fee_per_service) ?? 0)}`
@@ -58,7 +73,7 @@ export default async function GigResultPage({
       <div className="mt-6">
         <ResultBreakdown
           result={result}
-          minHourlyRate={settings.minHourlyRate}
+          verdict={verdict}
           taxRatePct={settings.taxRatePct}
           pensionPct={num(gig.pension_pct ?? null)}
         />

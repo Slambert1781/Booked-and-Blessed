@@ -4,6 +4,8 @@ import { formatDateRange, formatMoney } from "@/lib/format";
 import { SavedBanner } from "@/components/SavedBanner";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Tour } from "@/components/Tour";
+import { relationshipSettingsFrom, verdictFor } from "@/lib/clients";
+import { listClients } from "@/lib/clientsServer";
 import {
   GIG_STATUSES,
   resultForSavedGig,
@@ -42,6 +44,8 @@ export default async function Home({
     .returns<GigWithServices[]>();
 
   const settings = settingsFrom(result.profile);
+  const rel = relationshipSettingsFrom(result.profile);
+  const clientsById = new Map((await listClients()).map((c) => [c.id, c]));
   const all = gigs ?? [];
   const counts = { all: all.length, undecided: 0, taken: 0, declined: 0 };
   for (const g of all) counts[statusOf(g)]++;
@@ -94,6 +98,13 @@ export default async function Home({
         <ul className="mt-4 space-y-3">
           {shown.map((gig) => {
             const r = resultForSavedGig(gig, gig.gig_services, settings);
+            const client = gig.client_id ? (clientsById.get(gig.client_id) ?? null) : null;
+            const v = verdictFor(
+              r,
+              gig.gig_services.map((s) => s.service_date),
+              client,
+              rel,
+            );
             return (
               <li key={gig.id}>
                 <Link
@@ -103,18 +114,25 @@ export default async function Home({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate font-semibold">{gig.title || gig.venue_address}</p>
-                      {gig.title && <p className="truncate text-sm text-stone-600">{gig.venue_address}</p>}
+                      {(client || gig.title) && (
+                        <p className="truncate text-sm text-stone-600">
+                          {client ? client.name : gig.venue_address}
+                        </p>
+                      )}
                       <p className="mt-1 text-sm text-stone-500">
                         {formatDateRange(gig.gig_services.map((s) => s.service_date))}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <StatusBadge status={statusOf(gig)} />
-                        {r.realHourlyRate !== null && (
-                          <span
-                            className={`text-xs font-medium tabular-nums ${r.meetsMinimum === false ? "text-red-700" : r.meetsMinimum ? "text-emerald-700" : "text-stone-500"}`}
-                          >
-                            {r.meetsMinimum === true ? "✓ " : r.meetsMinimum === false ? "✗ " : ""}
-                            {formatMoney(r.realHourlyRate)}/hr
+                        {(r.realHourlyRate !== null || v) && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium tabular-nums text-stone-600">
+                            {v && (
+                              <span
+                                aria-label={v.verdict}
+                                className={`h-2.5 w-2.5 rounded-full ${v.verdict === "green" ? "bg-emerald-500" : v.verdict === "yellow" ? "bg-amber-400" : "bg-red-500"}`}
+                              />
+                            )}
+                            {r.realHourlyRate !== null && `${formatMoney(r.realHourlyRate)}/hr`}
                           </span>
                         )}
                         {gig.is_union && <span className="text-xs text-stone-500">Union</span>}

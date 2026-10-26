@@ -25,6 +25,7 @@ export async function lookupDrive(
 
 export type GigInput = {
   title: string;
+  clientId: string | null;
   gigType: "orchestra" | "flat_fee";
   venue: Place;
   feePerService: string;
@@ -106,6 +107,7 @@ function validate(
     services,
     fields: {
       title: input.title.trim() || null,
+      client_id: input.clientId || null,
       gig_type: input.gigType,
       venue_address: input.venue.address.trim(),
       venue_lat: input.venue.lat,

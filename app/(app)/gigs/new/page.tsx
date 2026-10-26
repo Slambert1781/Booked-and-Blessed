@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getGasPrice, type GasPrice } from "@/lib/eia/gasPrice";
+import { relationshipSettingsFrom } from "@/lib/clients";
+import { listClients } from "@/lib/clientsServer";
 import { gigToFormValues } from "@/lib/gigForm";
 import { settingsFrom } from "@/lib/gigs";
 import { loadGig } from "@/lib/loadGig";
@@ -15,7 +17,7 @@ export default async function NewGigPage({ searchParams }: { searchParams: Promi
   const p = result.profile!;
 
   const { copy } = await searchParams;
-  const source = copy ? await loadGig(copy) : null;
+  const [source, clients] = await Promise.all([copy ? loadGig(copy) : null, listClients()]);
 
   let gas: GasPrice | null = null;
   try {
@@ -45,6 +47,8 @@ export default async function NewGigPage({ searchParams }: { searchParams: Promi
           ...settingsFrom(p),
         }}
         defaultServiceHours={num(p.default_service_hours ?? null) ?? undefined}
+        clients={clients}
+        relationship={relationshipSettingsFrom(p)}
         gas={gas}
         initial={source ? gigToFormValues(source.gig, source.services, "copy") : undefined}
         mode={source ? { kind: "copy" } : { kind: "new" }}

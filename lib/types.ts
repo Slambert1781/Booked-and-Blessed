@@ -19,6 +19,11 @@ export type ProfileRow = {
   min_hourly_rate?: number | string | null;
   tax_rate_pct?: number | string | null;
   default_service_hours?: number | string | null;
+  // Added with the client directory update.
+  tier_discounts?: unknown;
+  holiday_rush_enabled?: boolean | null;
+  rush_periods?: unknown;
+  rush_discount_keep_pct?: number | string | null;
 };
 
 export function num(v: number | string | null | undefined): number | null {

@@ -1,6 +1,12 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import {
+  isMonthDay,
+  TIERS,
+  type RushPeriod,
+  type TierDiscounts,
+} from "@/lib/relationships";
 import { createClient } from "@/lib/supabase/server";
 
 export type ProfileInput = {
@@ -21,6 +27,10 @@ export type ProfileInput = {
   minHourlyRate: string;
   taxRatePct: string;
   defaultServiceHours: string;
+  tierDiscounts: Record<string, string>;
+  holidayRushEnabled: boolean;
+  rushPeriods: RushPeriod[];
+  rushKeepPct: string;
 };
 
 const positive = (s: string) => {
@@ -56,6 +66,20 @@ export async function saveProfile(input: ProfileInput): Promise<{ error: string 
   if (defaultServiceHours === null || defaultServiceHours > 24)
     return { error: "Enter how many hours a typical rehearsal or concert lasts, e.g. 2.5." };
 
+  const tierDiscounts = {} as TierDiscounts;
+  for (const t of TIERS) {
+    const v = Number((input.tierDiscounts[t] ?? "").replace("%", ""));
+    if (!Number.isFinite(v) || v < 0 || v > 100)
+      return { error: "Each tier discount must be a percentage between 0 and 100." };
+    tierDiscounts[t] = v;
+  }
+  const rushPeriods = input.rushPeriods.map((p) => ({ label: p.label.trim() || "Rush", start: p.start, end: p.end }));
+  if (rushPeriods.some((p) => !isMonthDay(p.start) || !isMonthDay(p.end)))
+    return { error: "Check the Holiday Rush dates." };
+  const rushKeepPct = Number(input.rushKeepPct.replace("%", ""));
+  if (!Number.isFinite(rushKeepPct) || rushKeepPct < 0 || rushKeepPct > 100)
+    return { error: "The Holiday Rush setting must be a percentage between 0 and 100." };
+
   const { error } = await supabase.from("profiles").upsert({
     user_id: user.id,
     home_address: input.homeAddress.trim(),
@@ -74,6 +98,10 @@ export async function saveProfile(input: ProfileInput): Promise<{ error: string 
     min_hourly_rate: minHourlyRate,
     tax_rate_pct: taxRatePct,
     default_service_hours: defaultServiceHours,
+    tier_discounts: tierDiscounts,
+    holiday_rush_enabled: input.holidayRushEnabled,
+    rush_periods: rushPeriods,
+    rush_discount_keep_pct: rushKeepPct,
   });
   if (error) return { error: "Couldn't save your profile. Please try again." };
 

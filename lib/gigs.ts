@@ -48,6 +48,7 @@ export type GigRow = {
   decided_at?: string | null;
   is_union?: boolean | null;
   pension_pct?: Numeric;
+  client_id?: string | null;
   created_at: string;
 };
 
