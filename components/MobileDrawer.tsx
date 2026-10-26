@@ -19,6 +19,7 @@ export function MobileDrawer({ avatar, children }: { avatar: React.ReactNode; ch
         <button
           type="button"
           aria-label="Open profile and menu"
+          data-tour="menu"
           onClick={() => setOpen(true)}
           className="rounded-full"
         >
@@ -34,6 +35,10 @@ export function MobileDrawer({ avatar, children }: { avatar: React.ReactNode; ch
       <aside
         className={`fixed inset-y-0 left-0 z-40 w-[85%] max-w-xs overflow-y-auto bg-stone-50 px-4 pb-6 pt-[max(1rem,env(safe-area-inset-top))] shadow-xl transition-transform ${open ? "translate-x-0" : "-translate-x-full"}`}
         aria-hidden={!open}
+        onClick={(e) => {
+          // Close for any link, including ones to the current page (e.g. How it works).
+          if ((e.target as HTMLElement).closest("a")) setOpen(false);
+        }}
       >
         <button
           type="button"

@@ -20,7 +20,7 @@ export function ProfileTile({ me }: { me: Me }) {
   const driving = num(p?.driving_rate ?? null);
 
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
+    <div className="rounded-2xl bg-white p-4 shadow-sm" data-tour="profile">
       <div className="flex items-center gap-3">
         <Avatar url={me.avatarUrl} name={me.name} email={me.email} size={48} />
         <div className="min-w-0">

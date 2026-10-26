@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatDateRange, formatMoney } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
+import { Tour } from "@/components/Tour";
 import {
   GIG_STATUSES,
   resultForSavedGig,
@@ -19,8 +20,12 @@ type GigWithServices = GigRow & { gig_services: ServiceRow[] };
 
 type Filter = "all" | GigStatus;
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
-  const requested = (await searchParams).status;
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; tour?: string }>;
+}) {
+  const { status: requested, tour } = await searchParams;
   const filter: Filter = GIG_STATUSES.includes(requested as GigStatus) ? (requested as GigStatus) : "all";
 
   const result = await getProfile();
@@ -48,7 +53,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ s
       <h1 className="text-2xl font-semibold">Your gigs</h1>
 
       {all.length > 0 && (
-        <nav className="mt-4 grid grid-cols-4 gap-1 rounded-xl bg-stone-200 p-1 text-center text-sm">
+        <nav data-tour="gigs" className="mt-4 grid grid-cols-4 gap-1 rounded-xl bg-stone-200 p-1 text-center text-sm">
           {tabs.map((t) => (
             <Link
               key={t.value}
@@ -63,7 +68,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ s
       )}
 
       {!all.length ? (
-        <div className="mt-10 rounded-2xl bg-white p-6 text-center shadow-sm">
+        <div data-tour="gigs" className="mt-10 rounded-2xl bg-white p-6 text-center shadow-sm">
           <p className="font-medium">No gigs yet</p>
           <p className="mt-1 text-sm text-stone-600">
             Add one to see what it really pays once travel is counted.
@@ -108,8 +113,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ s
         </ul>
       )}
 
+      <Tour start={!result.tourDone || tour === "1"} hasGigs={all.length > 0} replay={tour === "1"} />
+
       <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-stone-50 via-stone-50 to-transparent px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8 lg:left-80">
-        <Link href="/gigs/new" className="btn-primary mx-auto block max-w-md text-center text-lg shadow-lg">
+        <Link
+          href="/gigs/new"
+          data-tour="new-gig"
+          className="btn-primary mx-auto block max-w-md text-center text-lg shadow-lg"
+        >
           + New gig
         </Link>
       </div>

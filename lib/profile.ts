@@ -8,6 +8,7 @@ export type Me = {
   email: string;
   name: string; // stored in the auth user's metadata
   avatarUrl: string | null; // likewise
+  tourDone: boolean; // likewise: finished or skipped the first-time walkthrough
   profile: ProfileRow | null;
 };
 
@@ -23,6 +24,7 @@ export const getProfile = cache(async (): Promise<Me | null> => {
     userId: user.id,
     email: user.email ?? "",
     name: String(user.user_metadata?.full_name ?? "").trim(),
+    tourDone: user.user_metadata?.tour_done === true,
     avatarUrl: typeof user.user_metadata?.avatar_url === "string" ? user.user_metadata.avatar_url : null,
     profile: data as ProfileRow | null,
   };
