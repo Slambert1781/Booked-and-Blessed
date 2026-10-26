@@ -51,7 +51,8 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
   start time (calendar only) and a length in hours
 - Extras: union gig (with pension %), mileage reimbursement (per mile or
   flat), staying overnight (hosted or room cost per night, lodging stipend
-  per night, number of nights), and **eating out** (on by default)
+  per night, number of nights), **eating out** (on by default) and **count
+  my drive time** (on by default)
 - Gas price: this week's EIA average for the state (or region, then
   national), or typed in
 - Decision: undecided / booked (`taken`) / declined
@@ -68,7 +69,7 @@ total_miles      = one_way_miles * 2 * round_trips
 total_drive_hrs  = one_way_minutes * 2 / 60 * round_trips
 
 gas_cost         = (total_miles / mpg) * gas_price_per_gallon
-drive_time_cost  = total_drive_hrs * (driving_rate ?? playing_rate)
+drive_time_cost  = count_drive_time ? total_drive_hrs * (driving_rate ?? playing_rate) : 0
 
 mileage_reimb    = !pays_mileage ? 0
                  : per_mile ? reimb_rate_per_mile * total_miles
@@ -88,7 +89,8 @@ real_take_home       = take_home_before_tax - tax_set_aside
 playing_hours    = sum of the services' lengths
 net_cash         = total_pay + mileage_reimb + lodging_stipend
                    - gas_cost - lodging_cost - food_cost
-real_hourly_rate = playing_hours > 0 ? net_cash / (playing_hours + total_drive_hrs) : none
+counted_hours    = playing_hours + (count_drive_time ? total_drive_hrs : 0)
+real_hourly_rate = playing_hours > 0 ? net_cash / counted_hours : none
 pension          = union ? total_pay * pension_pct / 100 : 0   (shown separately, not take-home)
 ```
 
@@ -131,6 +133,7 @@ Every user table has `user_id` → `auth.users` and owner-only RLS policies.
   (rush_discount_keep_pct is no longer used.)
 - **gigs**: client_id, title, gig_type, venue (text, lat/lng), fees,
   mileage and lodging fields, lodging_nights, eating_out (default true),
+  count_drive_time (default true),
   is_union, pension_pct, status, decided_at, and the stored values: one-way
   miles/minutes, gas price/source/date, mpg_used, playing_rate_used,
   driving_rate_used, local_meal_rate_used, overnight_meal_rate_used.

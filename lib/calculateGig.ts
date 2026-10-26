@@ -36,6 +36,11 @@ export type CalcGig = {
 
   /** Buying meals on this gig. Off = no food cost. Defaults to on. */
   eatingOut?: boolean;
+  /**
+   * Count your time behind the wheel. Off = no drive time cost, and the
+   * hourly rate uses playing hours only. Defaults to on.
+   */
+  countDriveTime?: boolean;
 
   /** Length of each service in hours (same order as serviceDates). */
   serviceHours?: (number | null)[];
@@ -60,6 +65,8 @@ export type GigResult = {
   gasCost: number;
   driveTimeRate: number;
   driveTimeCost: number;
+  /** Whether drive time was counted (the gig's switch). */
+  driveTimeCounted: boolean;
   mileageReimbursement: number;
   lodgingStipend: number;
   lodgingCost: number;
@@ -74,7 +81,7 @@ export type GigResult = {
 
   /** Hours spent playing (sum of service lengths). */
   playingHours: number;
-  /** Playing plus driving hours. */
+  /** Playing plus driving hours (playing only when drive time isn't counted). */
   totalHours: number;
   /** Money in hand after gas, lodging and food, before valuing drive time. */
   netCash: number;
@@ -108,7 +115,8 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
 
   const gasCost = profile.mpg > 0 ? (totalMiles / profile.mpg) * lookups.gasPricePerGallon : 0;
   const driveTimeRate = profile.drivingRate ?? profile.playingRate;
-  const driveTimeCost = totalDriveHours * driveTimeRate;
+  const countDrive = gig.countDriveTime !== false;
+  const driveTimeCost = countDrive ? totalDriveHours * driveTimeRate : 0;
 
   const mileageReimbursement = !gig.paysMileage
     ? 0
@@ -126,7 +134,7 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
     totalPay + mileageReimbursement + lodgingStipend - gasCost - lodgingCost - foodCost - driveTimeCost;
 
   const playingHours = (gig.serviceHours ?? []).reduce<number>((sum, h) => sum + (h ?? 0), 0);
-  const totalHours = playingHours + totalDriveHours;
+  const totalHours = playingHours + (countDrive ? totalDriveHours : 0);
   const netCash = totalPay + mileageReimbursement + lodgingStipend - gasCost - lodgingCost - foodCost;
   const realHourlyRate = playingHours > 0 ? netCash / totalHours : null;
   const meetsMinimum =
@@ -145,6 +153,7 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
     gasCost,
     driveTimeRate,
     driveTimeCost,
+    driveTimeCounted: countDrive,
     mileageReimbursement,
     lodgingStipend,
     lodgingCost,

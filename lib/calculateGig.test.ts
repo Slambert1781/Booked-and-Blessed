@@ -262,3 +262,25 @@ describe("calculateGig: food details", () => {
     expect(calculateGig(eater, { ...orchestra, eatingOut: false }, lookups).foodDays).toBe(0);
   });
 });
+
+describe("calculateGig: count drive time", () => {
+  it("is on by default", () => {
+    const r = calculateGig(profile, { ...wedding, serviceHours: [2] }, lookups);
+    expect(r.driveTimeCost).toBe(100);
+    expect(r.totalHours).toBe(4);
+  });
+
+  it("off: no drive time cost, gas still counts", () => {
+    const r = calculateGig(profile, { ...orchestra, countDriveTime: false }, lookups);
+    expect(r.driveTimeCost).toBe(0);
+    expect(r.gasCost).toBeCloseTo(48);
+    expect(r.totalDriveHours).toBe(8); // still shown
+    expect(r.realTakeHome).toBeCloseTo(750 - 48);
+  });
+
+  it("off: hourly rate uses playing hours only", () => {
+    const r = calculateGig(profile, { ...wedding, serviceHours: [2], countDriveTime: false }, lookups);
+    expect(r.totalHours).toBe(2);
+    expect(r.realHourlyRate).toBeCloseTo(388 / 2);
+  });
+});

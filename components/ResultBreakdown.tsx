@@ -58,12 +58,20 @@ export function ResultBreakdown({
             negative
           />
         )}
-        <Row
-          label="Your drive time"
-          detail={hourly !== null ? `${formatHours(r.totalDriveHours)} at ${formatMoney(hourly)}/hr` : undefined}
-          value={`− ${formatMoney(r.driveTimeCost)}`}
-          negative
-        />
+        {r.driveTimeCounted ? (
+          <Row
+            label="Your drive time"
+            detail={hourly !== null ? `${formatHours(r.totalDriveHours)} at ${formatMoney(hourly)}/hr` : undefined}
+            value={`− ${formatMoney(r.driveTimeCost)}`}
+            negative
+          />
+        ) : (
+          <Row
+            label="Your drive time"
+            detail={`${formatHours(r.totalDriveHours)} of driving, switched off for this gig`}
+            value="Not counted"
+          />
+        )}
         {r.taxSetAside > 0 && (
           <Row
             label={`Taxes${taxRatePct ? ` (${taxRatePct}% of pay)` : ""}`}
@@ -157,8 +165,16 @@ function HourlyRate({ result: r, verdict }: { result: GigResult; verdict: Verdic
       {verdict && <p className="mt-2 text-sm text-stone-800">{verdict.explanation}</p>}
       {r.realHourlyRate !== null ? (
         <p className="mt-1 text-xs text-stone-500">
-          Over {formatHours(r.totalHours)}: {formatHours(r.playingHours)} playing + {formatHours(r.totalDriveHours)}{" "}
-          driving, after gas, lodging and food.
+          {r.driveTimeCounted ? (
+            <>
+              Over {formatHours(r.totalHours)}: {formatHours(r.playingHours)} playing + {formatHours(r.totalDriveHours)}{" "}
+              driving, after gas, lodging and food.
+            </>
+          ) : (
+            <>
+              Over {formatHours(r.playingHours)} of playing (drive time not counted), after gas, lodging and food.
+            </>
+          )}
         </p>
       ) : (
         <p className="mt-1 text-sm text-stone-500">

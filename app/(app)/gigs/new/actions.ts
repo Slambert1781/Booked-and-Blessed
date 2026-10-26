@@ -34,6 +34,7 @@ export type GigInput = {
   services: { kind: ServiceKind; date: string; time: string; hours: string }[];
   lodgingNights: string;
   eatingOut: boolean;
+  countDriveTime: boolean;
   paysMileage: boolean;
   reimbType: "per_mile" | "flat";
   reimbRatePerMile: string;
@@ -137,6 +138,7 @@ function validate(
       stipend_per_night: input.stayingOvernight ? stipend : null,
       lodging_nights: nights,
       eating_out: input.eatingOut,
+      count_drive_time: input.countDriveTime,
       is_union: input.isUnion,
       pension_pct: pension,
       one_way_miles: miles,

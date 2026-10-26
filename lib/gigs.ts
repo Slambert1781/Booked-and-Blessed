@@ -51,6 +51,7 @@ export type GigRow = {
   client_id?: string | null;
   lodging_nights?: number | null;
   eating_out?: boolean | null;
+  count_drive_time?: boolean | null;
   local_meal_rate_used?: Numeric;
   overnight_meal_rate_used?: Numeric;
   created_at: string;
@@ -93,6 +94,7 @@ export function resultForSavedGig(gig: GigRow, services: ServiceRow[], settings?
     stipendPerNight: num(gig.stipend_per_night),
     lodgingNights: gig.lodging_nights ?? null,
     eatingOut: gig.eating_out ?? true,
+    countDriveTime: gig.count_drive_time ?? true,
     serviceHours: services.map((s) => num(s.duration_hours ?? null)),
     isUnion: gig.is_union ?? false,
     pensionPct: num(gig.pension_pct ?? null),
