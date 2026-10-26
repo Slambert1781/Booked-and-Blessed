@@ -15,6 +15,10 @@ export type ProfileRow = {
   mpg_is_manual: boolean;
   playing_rate: number | string | null;
   driving_rate: number | string | null;
+  // Added with the hourly/tax/union update; absent until that SQL is run.
+  min_hourly_rate?: number | string | null;
+  tax_rate_pct?: number | string | null;
+  default_service_hours?: number | string | null;
 };
 
 export function num(v: number | string | null | undefined): number | null {

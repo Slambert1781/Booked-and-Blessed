@@ -30,11 +30,13 @@ const gig: GigRow = {
   playing_rate_used: 50,
   driving_rate_used: null,
   status: "taken",
+  is_union: true,
+  pension_pct: "10.00",
   decided_at: "2026-10-20T00:00:00Z",
   created_at: "2026-10-20T00:00:00Z",
 };
 const services = [
-  { id: "s1", service_date: "2026-12-05", start_time: "19:30:00" },
+  { id: "s1", service_date: "2026-12-05", start_time: "19:30:00", duration_hours: "2.50" },
   { id: "s2", service_date: "2026-12-06", start_time: null },
 ];
 
@@ -50,10 +52,12 @@ describe("gigToFormValues", () => {
       gasPrice: "3.874",
       gasSource: { areaName: "West Coast except California (PADD 5)", periodDate: "2026-10-19" },
       status: "taken",
+      isUnion: true,
+      pensionPct: "10",
     });
     expect(v.services).toEqual([
-      { date: "2026-12-05", time: "19:30" },
-      { date: "2026-12-06", time: "" },
+      { date: "2026-12-05", time: "19:30", hours: "2.5" },
+      { date: "2026-12-06", time: "", hours: "" },
     ]);
     expect(v.venue).toMatchObject({ lat: 44.56, lng: -123.26 });
   });

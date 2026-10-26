@@ -11,7 +11,7 @@ import type { GigStatus } from "@/lib/gigs";
 import type { GasSource, GigFormValues } from "@/lib/gigForm";
 import { createGig, lookupDrive, updateGig } from "./actions";
 
-type Service = { date: string; time: string };
+type Service = { date: string; time: string; hours: string };
 
 export type GigFormMode = { kind: "new" } | { kind: "copy" } | { kind: "edit"; gigId: string };
 
@@ -30,6 +30,7 @@ export function GigForm({
   gas,
   initial,
   mode = { kind: "new" },
+  defaultServiceHours,
 }: {
   profile: CalcProfile;
   /** Today's EIA average (null if unavailable). */
@@ -37,7 +38,10 @@ export function GigForm({
   /** Starting values when editing or copying a gig. */
   initial?: GigFormValues;
   mode?: GigFormMode;
+  /** Pre-filled length for new services. */
+  defaultServiceHours?: number;
 }) {
+  const defaultHours = String(defaultServiceHours ?? 2.5);
   const todaysGas: GasSource = gas ? { areaName: gas.areaName, periodDate: gas.periodDate, kind: gas.kind } : null;
 
   const [title, setTitle] = useState(initial?.title ?? "");
@@ -45,12 +49,17 @@ export function GigForm({
   const [venue, setVenue] = useState<AddressValue>(initial?.venue ?? { address: "", lat: null, lng: null, state: null });
   const [feePerService, setFeePerService] = useState(initial?.feePerService ?? "");
   const [flatFee, setFlatFee] = useState(initial?.flatFee ?? "");
-  const [services, setServices] = useState<Service[]>(initial?.services.length ? initial.services : [{ date: today(), time: "" }]);
+  const [services, setServices] = useState<Service[]>(
+    initial?.services.length ? initial.services : [{ date: today(), time: "", hours: defaultHours }],
+  );
 
   const [paysMileage, setPaysMileage] = useState(initial?.paysMileage ?? false);
   const [reimbType, setReimbType] = useState<"per_mile" | "flat">(initial?.reimbType ?? "per_mile");
   const [reimbRatePerMile, setReimbRatePerMile] = useState(initial?.reimbRatePerMile ?? "");
   const [flatReimbAmount, setFlatReimbAmount] = useState(initial?.flatReimbAmount ?? "");
+
+  const [isUnion, setIsUnion] = useState(initial?.isUnion ?? false);
+  const [pensionPct, setPensionPct] = useState(initial?.pensionPct ?? "");
 
   const [stayingOvernight, setStayingOvernight] = useState(initial?.stayingOvernight ?? false);
   const [hosted, setHosted] = useState(initial?.hosted ?? false);
@@ -105,7 +114,8 @@ export function GigForm({
     const m = parse(miles);
     const min = parse(minutes);
     const g = parse(gasPrice);
-    const dates = services.map((s) => s.date).filter(Boolean);
+    const dated = services.filter((s) => s.date);
+    const dates = dated.map((s) => s.date);
     const pay = gigType === "orchestra" ? parse(feePerService) : parse(flatFee);
     if (m === null || min === null || g === null || pay === null || dates.length === 0) return null;
     return calculateGig(
@@ -124,12 +134,16 @@ export function GigForm({
         hosted,
         roomCostPerNight: parse(roomCostPerNight),
         stipendPerNight: parse(stipendPerNight),
+        serviceHours: dated.map((s) => parse(s.hours)),
+        isUnion,
+        pensionPct: parse(pensionPct),
       },
       { oneWayMiles: m, oneWayMinutes: min, gasPricePerGallon: g },
     );
   }, [
     profile, gigType, feePerService, flatFee, services, paysMileage, reimbType, reimbRatePerMile,
     flatReimbAmount, stayingOvernight, hosted, roomCostPerNight, stipendPerNight, miles, minutes, gasPrice,
+    isUnion, pensionPct,
   ]);
 
   function submit(e: React.FormEvent) {
@@ -151,6 +165,8 @@ export function GigForm({
         hosted,
         roomCostPerNight,
         stipendPerNight,
+        isUnion,
+        pensionPct,
         oneWayMiles: miles,
         oneWayMinutes: minutes,
         distanceIsManual,
@@ -240,20 +256,30 @@ export function GigForm({
         )}
         <ul className="space-y-2">
           {services.map((s, i) => (
-            <li key={i} className="flex items-end gap-2">
-              <label className="flex-1">
+            <li key={i} className="grid grid-cols-[1.45fr_1.1fr_0.6fr_1.75rem] items-end gap-1.5">
+              <label className="min-w-0">
                 <span className="block text-xs text-stone-500">Date</span>
-                <input type="date" className="field mt-1" value={s.date} onChange={(e) => updateService(i, { date: e.target.value })} />
+                <input type="date" className="field mt-1 px-2" value={s.date} onChange={(e) => updateService(i, { date: e.target.value })} />
               </label>
-              <label className="w-32">
+              <label className="min-w-0">
                 <span className="block text-xs text-stone-500">Start</span>
-                <input type="time" className="field mt-1" value={s.time} onChange={(e) => updateService(i, { time: e.target.value })} />
+                <input type="time" className="field mt-1 px-2" value={s.time} onChange={(e) => updateService(i, { time: e.target.value })} />
+              </label>
+              <label className="min-w-0">
+                <span className="block text-xs text-stone-500">Hours</span>
+                <input
+                  className="field mt-1 px-2 text-center"
+                  inputMode="decimal"
+                  value={s.hours}
+                  onChange={(e) => updateService(i, { hours: e.target.value })}
+                  aria-label={`Hours for service ${i + 1}`}
+                />
               </label>
               {services.length > 1 && (
                 <button
                   type="button"
                   aria-label="Remove"
-                  className="mb-1 h-11 w-11 rounded-lg text-xl text-stone-500 active:bg-stone-200"
+                  className="mb-1 h-11 w-7 rounded-lg text-xl text-stone-500 active:bg-stone-200"
                   onClick={() => setServices(services.filter((_, j) => j !== i))}
                 >
                   ×
@@ -265,7 +291,16 @@ export function GigForm({
         <button
           type="button"
           className="btn-secondary w-full"
-          onClick={() => setServices([...services, { date: services.at(-1)?.date ?? today(), time: services.at(-1)?.time ?? "" }])}
+          onClick={() =>
+            setServices([
+              ...services,
+              {
+                date: services.at(-1)?.date ?? today(),
+                time: services.at(-1)?.time ?? "",
+                hours: services.at(-1)?.hours || defaultHours,
+              },
+            ])
+          }
         >
           + Add {gigType === "orchestra" ? "a service" : "another date"}
         </button>
@@ -279,6 +314,29 @@ export function GigForm({
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Extras</h2>
+        <Toggle label="Union gig" checked={isUnion} onChange={setIsUnion} />
+        {isUnion && (
+          <div className="space-y-1 rounded-xl bg-white p-3 shadow-sm">
+            <label className="block">
+              <span className="block text-sm font-medium">Pension contribution (optional)</span>
+              <div className="relative mt-1">
+                <input
+                  className="field pr-8"
+                  inputMode="decimal"
+                  value={pensionPct}
+                  onChange={(e) => setPensionPct(e.target.value)}
+                  placeholder="e.g. 10"
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-500">%</span>
+              </div>
+            </label>
+            <p className="text-xs text-stone-500">
+              What the employer pays into your union pension, as a % of your pay. Shown separately, as it isn&apos;t
+              part of your take-home.
+            </p>
+          </div>
+        )}
+
         <Toggle label="They pay mileage" checked={paysMileage} onChange={setPaysMileage} />
         {paysMileage && (
           <div className="space-y-3 rounded-xl bg-white p-3 shadow-sm">
@@ -351,7 +409,12 @@ export function GigForm({
       {preview && (
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">The real pay</h2>
-          <ResultBreakdown result={preview} />
+          <ResultBreakdown
+            result={preview}
+            minHourlyRate={profile.minHourlyRate}
+            taxRatePct={profile.taxRatePct}
+            pensionPct={isUnion ? parse(pensionPct) : null}
+          />
         </section>
       )}
 

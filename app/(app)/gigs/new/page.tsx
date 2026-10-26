@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getGasPrice, type GasPrice } from "@/lib/eia/gasPrice";
 import { gigToFormValues } from "@/lib/gigForm";
+import { settingsFrom } from "@/lib/gigs";
 import { loadGig } from "@/lib/loadGig";
 import { getProfile } from "@/lib/profile";
 import { isProfileComplete, num } from "@/lib/types";
@@ -37,7 +38,13 @@ export default async function NewGigPage({ searchParams }: { searchParams: Promi
         </p>
       )}
       <GigForm
-        profile={{ mpg: num(p.mpg)!, playingRate: num(p.playing_rate)!, drivingRate: num(p.driving_rate) }}
+        profile={{
+          mpg: num(p.mpg)!,
+          playingRate: num(p.playing_rate)!,
+          drivingRate: num(p.driving_rate),
+          ...settingsFrom(p),
+        }}
+        defaultServiceHours={num(p.default_service_hours ?? null) ?? undefined}
         gas={gas}
         initial={source ? gigToFormValues(source.gig, source.services, "copy") : undefined}
         mode={source ? { kind: "copy" } : { kind: "new" }}

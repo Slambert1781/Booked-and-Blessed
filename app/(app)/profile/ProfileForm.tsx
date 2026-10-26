@@ -45,6 +45,9 @@ export function ProfileForm({
   const [carError, setCarError] = useState<string | null>(null);
   const [playingRate, setPlayingRate] = useState(str(profile?.playing_rate));
   const [drivingRate, setDrivingRate] = useState(str(profile?.driving_rate));
+  const [minHourlyRate, setMinHourlyRate] = useState(str(profile?.min_hourly_rate));
+  const [taxRatePct, setTaxRatePct] = useState(str(profile?.tax_rate_pct));
+  const [defaultServiceHours, setDefaultServiceHours] = useState(str(profile?.default_service_hours ?? 2.5));
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -67,6 +70,9 @@ export function ProfileForm({
         mpgIsManual: manual,
         playingRate,
         drivingRate,
+        minHourlyRate,
+        taxRatePct,
+        defaultServiceHours,
       });
       if (result?.error) setError(result.error);
     });
@@ -177,6 +183,47 @@ export function ProfileForm({
           placeholder="Leave blank to use your playing rate"
           hint="If you value time behind the wheel differently from playing time."
         />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Goals and taxes</h2>
+        <Money
+          label="Minimum real hourly rate (optional)"
+          value={minHourlyRate}
+          onChange={setMinHourlyRate}
+          placeholder="e.g. 40"
+          hint="Each gig shows whether it pays above or below this, once playing and driving time are counted."
+        />
+        <label className="block">
+          <span className="block text-sm font-medium">Set aside for taxes (optional)</span>
+          <div className="relative mt-1">
+            <input
+              className="field pr-8"
+              inputMode="decimal"
+              value={taxRatePct}
+              onChange={(e) => setTaxRatePct(e.target.value)}
+              placeholder="e.g. 25"
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-500">%</span>
+          </div>
+          <span className="mt-1 block text-xs text-stone-500">A percentage of each gig&apos;s pay to put aside for taxes.</span>
+        </label>
+        <label className="block">
+          <span className="block text-sm font-medium">Typical rehearsal or concert length</span>
+          <div className="relative mt-1">
+            <input
+              className="field pr-14"
+              inputMode="decimal"
+              value={defaultServiceHours}
+              onChange={(e) => setDefaultServiceHours(e.target.value)}
+              placeholder="2.5"
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-500">hours</span>
+          </div>
+          <span className="mt-1 block text-xs text-stone-500">
+            Filled in for each new service. You can change it per rehearsal or concert.
+          </span>
+        </label>
       </section>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-red-800">{error}</p>}

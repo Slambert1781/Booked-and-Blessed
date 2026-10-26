@@ -2,7 +2,17 @@ import type { GigResult } from "@/lib/calculateGig";
 import { formatHours, formatMiles, formatMoney } from "@/lib/format";
 
 // The result screen's breakdown. Used for the live preview and saved gigs.
-export function ResultBreakdown({ result }: { result: GigResult }) {
+export function ResultBreakdown({
+  result,
+  minHourlyRate,
+  taxRatePct,
+  pensionPct,
+}: {
+  result: GigResult;
+  minHourlyRate?: number | null;
+  taxRatePct?: number | null;
+  pensionPct?: number | null;
+}) {
   const r = result;
   const hourly = r.totalDriveHours > 0 ? r.driveTimeRate : null;
   return (
@@ -16,6 +26,8 @@ export function ResultBreakdown({ result }: { result: GigResult }) {
           from {formatMoney(r.totalPay)} pay, after travel
         </p>
       </div>
+
+      <HourlyRate result={r} minHourlyRate={minHourlyRate ?? null} />
 
       <dl className="divide-y divide-stone-200 rounded-2xl bg-white px-4 shadow-sm">
         <Row label="Total pay" value={formatMoney(r.totalPay)} />
@@ -44,6 +56,26 @@ export function ResultBreakdown({ result }: { result: GigResult }) {
           negative
         />
       </dl>
+
+      {(r.taxSetAside > 0 || r.pensionContribution > 0) && (
+        <dl className="divide-y divide-stone-200 rounded-2xl bg-white px-4 shadow-sm">
+          {r.taxSetAside > 0 && (
+            <Row
+              label={`Set aside for taxes${taxRatePct ? ` (${taxRatePct}%)` : ""}`}
+              detail="Put this away from the pay. It isn't taken off your take-home above."
+              value={formatMoney(r.taxSetAside)}
+            />
+          )}
+          {r.pensionContribution > 0 && (
+            <Row
+              label={`Union pension${pensionPct ? ` (${pensionPct}%)` : ""}`}
+              detail="Paid into your pension by the employer, on top of your pay."
+              value={`+ ${formatMoney(r.pensionContribution)}`}
+              positive
+            />
+          )}
+        </dl>
+      )}
 
       <dl className="grid grid-cols-3 gap-2 text-center">
         <Stat label="Round trips" value={String(r.roundTrips)} />
@@ -74,7 +106,7 @@ function Row({
         {detail && <span className="block text-xs text-stone-500">{detail}</span>}
       </dt>
       <dd
-        className={`tabular-nums font-medium ${positive ? "text-emerald-700" : ""} ${negative ? "text-stone-700" : ""}`}
+        className={`shrink-0 whitespace-nowrap tabular-nums font-medium ${positive ? "text-emerald-700" : ""} ${negative ? "text-stone-700" : ""}`}
       >
         {value}
       </dd>
@@ -87,6 +119,41 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl bg-white px-2 py-3 shadow-sm">
       <dd className="font-semibold tabular-nums">{value}</dd>
       <dt className="text-xs text-stone-500">{label}</dt>
+    </div>
+  );
+}
+
+function HourlyRate({ result: r, minHourlyRate }: { result: GigResult; minHourlyRate: number | null }) {
+  if (r.realHourlyRate === null) {
+    return (
+      <p className="rounded-2xl bg-white px-4 py-3 text-sm text-stone-500 shadow-sm">
+        Add how many hours each service lasts to see your real hourly rate.
+      </p>
+    );
+  }
+  const verdict =
+    r.meetsMinimum === null ? null : r.meetsMinimum ? (
+      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900">
+        ✓ Above your {formatMoney(minHourlyRate!)}/hr minimum
+      </span>
+    ) : (
+      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-900">
+        ✗ Below your {formatMoney(minHourlyRate!)}/hr minimum
+      </span>
+    );
+  return (
+    <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p>
+          <span className="text-2xl font-bold tabular-nums">{formatMoney(r.realHourlyRate)}</span>
+          <span className="text-stone-600">/hr real</span>
+        </p>
+        {verdict}
+      </div>
+      <p className="mt-1 text-xs text-stone-500">
+        Over {formatHours(r.totalHours)}: {formatHours(r.playingHours)} playing + {formatHours(r.totalDriveHours)}{" "}
+        driving, after gas and lodging.
+      </p>
     </div>
   );
 }

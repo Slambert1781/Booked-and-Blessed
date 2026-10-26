@@ -4,6 +4,10 @@ export type CalcProfile = {
   mpg: number;
   playingRate: number;
   drivingRate: number | null; // null = use playingRate
+  /** % of pay to set aside for taxes; null/0 = none. */
+  taxRatePct?: number | null;
+  /** The lowest real hourly rate you want to work for; null = no minimum. */
+  minHourlyRate?: number | null;
 };
 
 export type CalcGig = {
@@ -23,6 +27,12 @@ export type CalcGig = {
   hosted: boolean;
   roomCostPerNight?: number | null;
   stipendPerNight?: number | null;
+
+  /** Length of each service in hours (same order as serviceDates). */
+  serviceHours?: (number | null)[];
+  isUnion?: boolean;
+  /** % of pay the employer contributes to the union pension. */
+  pensionPct?: number | null;
 };
 
 export type CalcLookups = {
@@ -45,6 +55,20 @@ export type GigResult = {
   lodgingStipend: number;
   lodgingCost: number;
   realTakeHome: number;
+
+  /** Hours spent playing (sum of service lengths). */
+  playingHours: number;
+  /** Playing plus driving hours. */
+  totalHours: number;
+  /** Money in hand after gas and lodging, before valuing drive time. */
+  netCash: number;
+  /** netCash per hour of playing and driving; null when no hours are known. */
+  realHourlyRate: number | null;
+  /** Compared with the profile minimum; null when either is unknown. */
+  meetsMinimum: boolean | null;
+  taxSetAside: number;
+  /** Paid into the union pension on your behalf; not part of take-home. */
+  pensionContribution: number;
 };
 
 const n = (v: number | null | undefined) => v ?? 0;
@@ -77,6 +101,15 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
   const realTakeHome =
     totalPay + mileageReimbursement + lodgingStipend - gasCost - lodgingCost - driveTimeCost;
 
+  const playingHours = (gig.serviceHours ?? []).reduce<number>((sum, h) => sum + (h ?? 0), 0);
+  const totalHours = playingHours + totalDriveHours;
+  const netCash = totalPay + mileageReimbursement + lodgingStipend - gasCost - lodgingCost;
+  const realHourlyRate = playingHours > 0 ? netCash / totalHours : null;
+  const meetsMinimum =
+    realHourlyRate === null || profile.minHourlyRate == null ? null : realHourlyRate >= profile.minHourlyRate;
+  const taxSetAside = totalPay * (n(profile.taxRatePct) / 100);
+  const pensionContribution = gig.isUnion ? totalPay * (n(gig.pensionPct) / 100) : 0;
+
   return {
     serviceDays,
     roundTrips,
@@ -91,5 +124,12 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
     lodgingStipend,
     lodgingCost,
     realTakeHome,
+    playingHours,
+    totalHours,
+    netCash,
+    realHourlyRate,
+    meetsMinimum,
+    taxSetAside,
+    pensionContribution,
   };
 }

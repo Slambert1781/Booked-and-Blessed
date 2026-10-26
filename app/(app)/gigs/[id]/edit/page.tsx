@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getGasPrice, type GasPrice } from "@/lib/eia/gasPrice";
 import { gigToFormValues } from "@/lib/gigForm";
+import { settingsFrom } from "@/lib/gigs";
 import { loadGig } from "@/lib/loadGig";
 import { getProfile } from "@/lib/profile";
 import { num } from "@/lib/types";
@@ -36,7 +37,9 @@ export default async function EditGigPage({ params }: { params: Promise<{ id: st
           mpg: num(gig.mpg_used) ?? 0,
           playingRate: num(gig.playing_rate_used) ?? 0,
           drivingRate: num(gig.driving_rate_used),
+          ...settingsFrom(me?.profile),
         }}
+        defaultServiceHours={num(me?.profile?.default_service_hours ?? null) ?? undefined}
         gas={gas}
         initial={gigToFormValues(gig, services, "edit")}
         mode={{ kind: "edit", gigId: id }}

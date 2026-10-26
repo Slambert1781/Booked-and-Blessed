@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { addMonths, monthGrid, monthKey, parseMonth, type Month } from "@/lib/calendar";
 import { formatDate, formatMoney, formatTime } from "@/lib/format";
-import { resultForSavedGig, statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
+import { resultForSavedGig, settingsFrom, statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
+import { getProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 
 // "Today" for the default month and highlight. The server runs in UTC, so
@@ -9,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 const TIME_ZONE = "America/Los_Angeles";
 
 type Entry = { gigId: string; title: string; date: string; time: string | null };
-type Money = { takeHome: number; pay: number; services: number };
+type Money = { takeHome: number; pay: number; tax: number; services: number };
 /** One gig's services within a list, with its money. */
 type GigGroup = { gigId: string; title: string; entries: Entry[]; money: Money };
 type GigWithServices = GigRow & { gig_services: ServiceRow[] };
@@ -22,10 +23,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const month = parseMonth((await searchParams).month, thisMonth);
   const key = monthKey(month);
 
+  const me = await getProfile();
+  const settings = settingsFrom(me?.profile);
   const supabase = await createClient();
   const { data: gigs } = await supabase
     .from("gigs")
-    .select("*, gig_services(id, service_date, start_time)")
+    .select("*, gig_services(*)")
     .returns<GigWithServices[]>();
 
   const taken = (gigs ?? []).filter((g) => statusOf(g) === "taken");
@@ -42,8 +45,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
   const money = new Map<string, Money>(
     taken.map((g) => {
-      const r = resultForSavedGig(g, g.gig_services);
-      return [g.id, { takeHome: r.realTakeHome, pay: r.totalPay, services: g.gig_services.length }];
+      const r = resultForSavedGig(g, g.gig_services, settings);
+      return [g.id, { takeHome: r.realTakeHome, pay: r.totalPay, tax: r.taxSetAside, services: g.gig_services.length }];
     }),
   );
 
@@ -55,9 +58,13 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const monthTotals = monthGroups.reduce(
     (t, g) => {
       const share = g.entries.length / Math.max(g.money.services, 1);
-      return { takeHome: t.takeHome + g.money.takeHome * share, pay: t.pay + g.money.pay * share };
+      return {
+        takeHome: t.takeHome + g.money.takeHome * share,
+        pay: t.pay + g.money.pay * share,
+        tax: t.tax + g.money.tax * share,
+      };
     },
-    { takeHome: 0, pay: 0 },
+    { takeHome: 0, pay: 0, tax: 0 },
   );
   const upcomingGroups = groupByGig(
     entries.filter((e) => e.date >= today),
@@ -151,6 +158,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
               <p className="text-sm text-indigo-200">Take-home in {label}</p>
               <p className="text-3xl font-bold tabular-nums">{formatMoney(monthTotals.takeHome)}</p>
               <p className="text-sm text-indigo-100 tabular-nums">from {formatMoney(monthTotals.pay)} pay, after travel</p>
+              {monthTotals.tax > 0 && (
+                <p className="mt-2 border-t border-indigo-500 pt-2 text-sm text-indigo-100 tabular-nums">
+                  Set aside for taxes: <strong className="text-white">{formatMoney(monthTotals.tax)}</strong>
+                </p>
+              )}
             </div>
             <GigList groups={monthGroups} />
           </>

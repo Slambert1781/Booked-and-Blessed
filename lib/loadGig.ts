@@ -9,7 +9,7 @@ export async function loadGig(id: string): Promise<{ gig: GigRow; services: Serv
   if (!gig) return null;
   const { data: services } = await supabase
     .from("gig_services")
-    .select("id, service_date, start_time")
+    .select("*")
     .eq("gig_id", id)
     .order("service_date")
     .order("start_time", { nullsFirst: true })

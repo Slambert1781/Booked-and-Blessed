@@ -1,4 +1,5 @@
 import { calculateGig, type CalcGig, type GigResult } from "@/lib/calculateGig";
+import type { ProfileRow } from "@/lib/types";
 import { num } from "@/lib/types";
 
 export type GigStatus = "undecided" | "taken" | "declined";
@@ -45,13 +46,28 @@ export type GigRow = {
   driving_rate_used: Numeric;
   status?: GigStatus | null;
   decided_at?: string | null;
+  is_union?: boolean | null;
+  pension_pct?: Numeric;
   created_at: string;
 };
 
-export type ServiceRow = { id: string; service_date: string; start_time: string | null };
+export type ServiceRow = {
+  id: string;
+  service_date: string;
+  start_time: string | null;
+  duration_hours?: Numeric;
+};
+
+/** Profile settings that apply to every gig (not frozen per gig). */
+export type GigSettings = { taxRatePct: number | null; minHourlyRate: number | null };
+
+export const settingsFrom = (p: ProfileRow | null | undefined): GigSettings => ({
+  taxRatePct: num(p?.tax_rate_pct ?? null),
+  minHourlyRate: num(p?.min_hourly_rate ?? null),
+});
 
 /** Recalculate a saved gig from its stored (frozen) values. */
-export function resultForSavedGig(gig: GigRow, services: ServiceRow[]): GigResult {
+export function resultForSavedGig(gig: GigRow, services: ServiceRow[], settings?: GigSettings): GigResult {
   const calcGig: CalcGig = {
     gigType: gig.gig_type,
     feePerService: num(gig.fee_per_service),
@@ -66,12 +82,17 @@ export function resultForSavedGig(gig: GigRow, services: ServiceRow[]): GigResul
     hosted: gig.hosted,
     roomCostPerNight: num(gig.room_cost_per_night),
     stipendPerNight: num(gig.stipend_per_night),
+    serviceHours: services.map((s) => num(s.duration_hours ?? null)),
+    isUnion: gig.is_union ?? false,
+    pensionPct: num(gig.pension_pct ?? null),
   };
   return calculateGig(
     {
       mpg: num(gig.mpg_used) ?? 0,
       playingRate: num(gig.playing_rate_used) ?? 0,
       drivingRate: num(gig.driving_rate_used),
+      taxRatePct: settings?.taxRatePct ?? null,
+      minHourlyRate: settings?.minHourlyRate ?? null,
     },
     calcGig,
     {

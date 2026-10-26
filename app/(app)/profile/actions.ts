@@ -18,6 +18,9 @@ export type ProfileInput = {
   mpgIsManual: boolean;
   playingRate: string;
   drivingRate: string;
+  minHourlyRate: string;
+  taxRatePct: string;
+  defaultServiceHours: string;
 };
 
 const positive = (s: string) => {
@@ -43,6 +46,16 @@ export async function saveProfile(input: ProfileInput): Promise<{ error: string 
   if (input.drivingRate.trim() !== "" && drivingRate === null)
     return { error: "Driving rate must be a positive number, or leave it blank." };
 
+  const minHourlyRate = input.minHourlyRate.trim() === "" ? null : positive(input.minHourlyRate);
+  if (input.minHourlyRate.trim() !== "" && minHourlyRate === null)
+    return { error: "Minimum hourly rate must be a positive number, or leave it blank." };
+  const taxRatePct = input.taxRatePct.trim() === "" ? null : Number(input.taxRatePct.replace("%", ""));
+  if (taxRatePct !== null && !(Number.isFinite(taxRatePct) && taxRatePct >= 0 && taxRatePct <= 100))
+    return { error: "Tax set-aside must be a percentage between 0 and 100, or leave it blank." };
+  const defaultServiceHours = positive(input.defaultServiceHours);
+  if (defaultServiceHours === null || defaultServiceHours > 24)
+    return { error: "Enter how many hours a typical rehearsal or concert lasts, e.g. 2.5." };
+
   const { error } = await supabase.from("profiles").upsert({
     user_id: user.id,
     home_address: input.homeAddress.trim(),
@@ -58,6 +71,9 @@ export async function saveProfile(input: ProfileInput): Promise<{ error: string 
     mpg_is_manual: input.mpgIsManual,
     playing_rate: playingRate,
     driving_rate: drivingRate,
+    min_hourly_rate: minHourlyRate,
+    tax_rate_pct: taxRatePct,
+    default_service_hours: defaultServiceHours,
   });
   if (error) return { error: "Couldn't save your profile. Please try again." };
 

@@ -7,6 +7,7 @@ import { Tour } from "@/components/Tour";
 import {
   GIG_STATUSES,
   resultForSavedGig,
+  settingsFrom,
   STATUS_LABEL,
   statusOf,
   type GigRow,
@@ -36,10 +37,11 @@ export default async function Home({
   const supabase = await createClient();
   const { data: gigs } = await supabase
     .from("gigs")
-    .select("*, gig_services(id, service_date, start_time)")
+    .select("*, gig_services(*)")
     .order("created_at", { ascending: false })
     .returns<GigWithServices[]>();
 
+  const settings = settingsFrom(result.profile);
   const all = gigs ?? [];
   const counts = { all: all.length, undecided: 0, taken: 0, declined: 0 };
   for (const g of all) counts[statusOf(g)]++;
@@ -59,7 +61,7 @@ export default async function Home({
           key={savedGig.id}
           gigId={savedGig.id}
           text={`Saved: ${savedGig.title || savedGig.venue_address.split(",")[0]} · ${formatMoney(
-            resultForSavedGig(savedGig, savedGig.gig_services).realTakeHome,
+            resultForSavedGig(savedGig, savedGig.gig_services, settings).realTakeHome,
           )} take-home`}
         />
       )}
@@ -91,7 +93,7 @@ export default async function Home({
       ) : (
         <ul className="mt-4 space-y-3">
           {shown.map((gig) => {
-            const r = resultForSavedGig(gig, gig.gig_services);
+            const r = resultForSavedGig(gig, gig.gig_services, settings);
             return (
               <li key={gig.id}>
                 <Link
@@ -105,8 +107,17 @@ export default async function Home({
                       <p className="mt-1 text-sm text-stone-500">
                         {formatDateRange(gig.gig_services.map((s) => s.service_date))}
                       </p>
-                      <div className="mt-2">
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                         <StatusBadge status={statusOf(gig)} />
+                        {r.realHourlyRate !== null && (
+                          <span
+                            className={`text-xs font-medium tabular-nums ${r.meetsMinimum === false ? "text-red-700" : r.meetsMinimum ? "text-emerald-700" : "text-stone-500"}`}
+                          >
+                            {r.meetsMinimum === true ? "✓ " : r.meetsMinimum === false ? "✗ " : ""}
+                            {formatMoney(r.realHourlyRate)}/hr
+                          </span>
+                        )}
+                        {gig.is_union && <span className="text-xs text-stone-500">Union</span>}
                       </div>
                     </div>
                     <div className="shrink-0 text-right">

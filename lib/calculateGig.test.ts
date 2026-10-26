@@ -145,3 +145,46 @@ describe("calculateGig", () => {
     expect(r.driveTimeCost).toBeCloseTo((82 / 60) * 45, 10);
   });
 });
+
+describe("calculateGig: hourly rate, tax and union", () => {
+  // Wedding: $400, one 2-hour service, 100 mi / 2 hr round trip, $12 gas.
+  const withHours: CalcGig = { ...wedding, serviceHours: [2] };
+
+  it("real hourly rate counts playing and driving time, before valuing drive time", () => {
+    const r = calculateGig(profile, withHours, lookups);
+    expect(r.playingHours).toBe(2);
+    expect(r.totalHours).toBe(4);
+    expect(r.netCash).toBeCloseTo(388);
+    expect(r.realHourlyRate).toBeCloseTo(97);
+  });
+
+  it("adds up service lengths and ignores blanks", () => {
+    const r = calculateGig(profile, { ...orchestra, serviceHours: [2.5, 2.5, null, 3, 2] }, lookups);
+    expect(r.playingHours).toBe(10);
+  });
+
+  it("no service lengths means no hourly rate or verdict", () => {
+    const r = calculateGig({ ...profile, minHourlyRate: 40 }, wedding, lookups);
+    expect(r.realHourlyRate).toBeNull();
+    expect(r.meetsMinimum).toBeNull();
+  });
+
+  it("compares against the minimum hourly rate", () => {
+    expect(calculateGig({ ...profile, minHourlyRate: 90 }, withHours, lookups).meetsMinimum).toBe(true);
+    expect(calculateGig({ ...profile, minHourlyRate: 100 }, withHours, lookups).meetsMinimum).toBe(false);
+    expect(calculateGig(profile, withHours, lookups).meetsMinimum).toBeNull();
+  });
+
+  it("tax set-aside is a % of the pay and doesn't change take-home", () => {
+    const r = calculateGig({ ...profile, taxRatePct: 25 }, withHours, lookups);
+    expect(r.taxSetAside).toBe(100);
+    expect(r.realTakeHome).toBeCloseTo(288);
+  });
+
+  it("union pension is a % of pay, only on union gigs, and not part of take-home", () => {
+    const union = calculateGig(profile, { ...orchestra, isUnion: true, pensionPct: 10 }, lookups);
+    expect(union.pensionContribution).toBe(75);
+    expect(union.realTakeHome).toBeCloseTo(750 - 48 - 400);
+    expect(calculateGig(profile, { ...orchestra, isUnion: false, pensionPct: 10 }, lookups).pensionContribution).toBe(0);
+  });
+});

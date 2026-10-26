@@ -3,7 +3,7 @@ import type { GigRow, GigStatus, ServiceRow } from "@/lib/gigs";
 import { statusOf } from "@/lib/gigs";
 import { num } from "@/lib/types";
 
-export type FormService = { date: string; time: string };
+export type FormService = { date: string; time: string; hours: string };
 
 /** Where the gas price on the form came from; null = typed in by hand. */
 export type GasSource = { areaName: string; periodDate: string | null; kind?: "state" | "region" | "national" } | null;
@@ -24,6 +24,8 @@ export type GigFormValues = {
   hosted: boolean;
   roomCostPerNight: string;
   stipendPerNight: string;
+  isUnion: boolean;
+  pensionPct: string;
   miles: string;
   minutes: string;
   distanceIsManual: boolean;
@@ -50,7 +52,11 @@ export function gigToFormValues(gig: GigRow, services: ServiceRow[], mode: "edit
     venue: { address: gig.venue_address, lat: gig.venue_lat, lng: gig.venue_lng, state: null },
     feePerService: str(gig.fee_per_service),
     flatFee: str(gig.flat_fee),
-    services: services.map((s) => ({ date: s.service_date, time: (s.start_time ?? "").slice(0, 5) })),
+    services: services.map((s) => ({
+      date: s.service_date,
+      time: (s.start_time ?? "").slice(0, 5),
+      hours: str(s.duration_hours),
+    })),
     paysMileage: gig.pays_mileage,
     reimbType: gig.reimb_type ?? "per_mile",
     reimbRatePerMile: str(gig.reimb_rate_per_mile),
@@ -59,6 +65,8 @@ export function gigToFormValues(gig: GigRow, services: ServiceRow[], mode: "edit
     hosted: gig.hosted,
     roomCostPerNight: str(gig.room_cost_per_night),
     stipendPerNight: str(gig.stipend_per_night),
+    isUnion: gig.is_union ?? false,
+    pensionPct: str(gig.pension_pct),
     miles: str(gig.one_way_miles),
     minutes: (() => {
       const m = num(gig.one_way_minutes);

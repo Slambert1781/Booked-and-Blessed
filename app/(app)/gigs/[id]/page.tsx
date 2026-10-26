@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ResultBreakdown } from "@/components/ResultBreakdown";
-import { formatDate, formatMiles, formatMoney, formatTime } from "@/lib/format";
-import { resultForSavedGig, statusOf } from "@/lib/gigs";
+import { formatDate, formatHours, formatMiles, formatMoney, formatTime } from "@/lib/format";
+import { resultForSavedGig, settingsFrom, statusOf } from "@/lib/gigs";
 import { loadGig } from "@/lib/loadGig";
+import { getProfile } from "@/lib/profile";
 import { num } from "@/lib/types";
 import { deleteGig } from "./actions";
 import { DecisionButtons } from "./DecisionButtons";
@@ -17,11 +18,12 @@ export default async function GigResultPage({
 }) {
   const { id } = await params;
   const { updated } = await searchParams;
-  const loaded = await loadGig(id);
+  const [loaded, me] = await Promise.all([loadGig(id), getProfile()]);
   if (!loaded) notFound();
   const { gig, services } = loaded;
 
-  const result = resultForSavedGig(gig, services ?? []);
+  const settings = settingsFrom(me?.profile);
+  const result = resultForSavedGig(gig, services, settings);
   const gasPrice = num(gig.gas_price) ?? 0;
 
   return (
@@ -35,6 +37,7 @@ export default async function GigResultPage({
         {gig.gig_type === "orchestra"
           ? `Orchestra · ${gig.number_of_services} services at ${formatMoney(num(gig.fee_per_service) ?? 0)}`
           : "Flat fee"}
+        {gig.is_union && " · Union"}
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -53,7 +56,12 @@ export default async function GigResultPage({
       )}
 
       <div className="mt-6">
-        <ResultBreakdown result={result} />
+        <ResultBreakdown
+          result={result}
+          minHourlyRate={settings.minHourlyRate}
+          taxRatePct={settings.taxRatePct}
+          pensionPct={num(gig.pension_pct ?? null)}
+        />
       </div>
 
       <section className="mt-6">
@@ -66,7 +74,15 @@ export default async function GigResultPage({
           {(services ?? []).map((s) => (
             <li key={s.id} className="flex justify-between py-3">
               <span>{formatDate(s.service_date)}</span>
-              <span className="text-stone-600">{formatTime(s.start_time)}</span>
+              <span className="text-stone-600">
+                {formatTime(s.start_time)}
+                {num(s.duration_hours ?? null) !== null && (
+                  <span className="text-stone-400">
+                    {s.start_time ? " · " : ""}
+                    {formatHours(num(s.duration_hours ?? null)!)}
+                  </span>
+                )}
+              </span>
             </li>
           ))}
         </ul>

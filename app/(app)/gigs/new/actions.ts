@@ -29,7 +29,7 @@ export type GigInput = {
   venue: Place;
   feePerService: string;
   flatFee: string;
-  services: { date: string; time: string }[];
+  services: { date: string; time: string; hours: string }[];
   paysMileage: boolean;
   reimbType: "per_mile" | "flat";
   reimbRatePerMile: string;
@@ -38,6 +38,8 @@ export type GigInput = {
   hosted: boolean;
   roomCostPerNight: string;
   stipendPerNight: string;
+  isUnion: boolean;
+  pensionPct: string;
   oneWayMiles: string;
   oneWayMinutes: string;
   distanceIsManual: boolean;
@@ -60,8 +62,10 @@ type GigRowFields = Record<string, unknown>;
 /** Check the form and turn it into database fields (shared by create and update). */
 function validate(
   input: GigInput,
-): { error: string } | { fields: GigRowFields; services: { date: string; time: string }[]; status: GigStatus } {
-  const services = input.services.filter((s) => s.date);
+): { error: string } | { fields: GigRowFields; services: { date: string; time: string; hours: number | null }[]; status: GigStatus } {
+  const services = input.services
+    .filter((s) => s.date)
+    .map((s) => ({ date: s.date, time: s.time, hours: amount(s.hours) }));
   const fee = amount(input.feePerService);
   const flat = amount(input.flatFee);
   const rate = amount(input.reimbRatePerMile);
@@ -84,6 +88,11 @@ function validate(
     return { error: "Enter the flat mileage amount." };
   if (input.stayingOvernight && !input.hosted && (room === null || Number.isNaN(room)))
     return { error: "Enter the room cost per night, or tick 'hosted' if it's free." };
+  if (services.some((s) => Number.isNaN(s.hours) || s.hours === 0 || (s.hours ?? 0) > 24))
+    return { error: "Check the hours for each service: a number like 2.5, or leave it blank." };
+  const pension = input.isUnion ? amount(input.pensionPct) : null;
+  if (pension !== null && (Number.isNaN(pension) || pension > 100))
+    return { error: "Pension contribution must be a percentage between 0 and 100." };
   if ([rate, reimbFlat, room, stipend].some((v) => Number.isNaN(v)))
     return { error: "Check the amounts: they must be numbers." };
   if (miles === null || Number.isNaN(miles) || minutes === null || Number.isNaN(minutes))
@@ -112,6 +121,8 @@ function validate(
       hosted: input.stayingOvernight && input.hosted,
       room_cost_per_night: input.stayingOvernight && !input.hosted ? room : null,
       stipend_per_night: input.stayingOvernight ? stipend : null,
+      is_union: input.isUnion,
+      pension_pct: pension,
       one_way_miles: miles,
       one_way_minutes: minutes,
       distance_is_manual: input.distanceIsManual,
@@ -123,8 +134,14 @@ function validate(
   };
 }
 
-const serviceRows = (userId: string, gigId: string, services: { date: string; time: string }[]) =>
-  services.map((s) => ({ user_id: userId, gig_id: gigId, service_date: s.date, start_time: s.time || null }));
+const serviceRows = (userId: string, gigId: string, services: { date: string; time: string; hours: number | null }[]) =>
+  services.map((s) => ({
+    user_id: userId,
+    gig_id: gigId,
+    service_date: s.date,
+    start_time: s.time || null,
+    duration_hours: s.hours,
+  }));
 
 export async function createGig(input: GigInput): Promise<{ error: string } | void> {
   const result = await getProfile();
