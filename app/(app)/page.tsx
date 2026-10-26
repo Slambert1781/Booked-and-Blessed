@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatDateRange, formatMoney } from "@/lib/format";
+import { SavedBanner } from "@/components/SavedBanner";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Tour } from "@/components/Tour";
 import {
@@ -23,9 +24,9 @@ type Filter = "all" | GigStatus;
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; tour?: string }>;
+  searchParams: Promise<{ status?: string; tour?: string; saved?: string }>;
 }) {
-  const { status: requested, tour } = await searchParams;
+  const { status: requested, tour, saved } = await searchParams;
   const filter: Filter = GIG_STATUSES.includes(requested as GigStatus) ? (requested as GigStatus) : "all";
 
   const result = await getProfile();
@@ -42,6 +43,7 @@ export default async function Home({
   const all = gigs ?? [];
   const counts = { all: all.length, undecided: 0, taken: 0, declined: 0 };
   for (const g of all) counts[statusOf(g)]++;
+  const savedGig = saved ? all.find((g) => g.id === saved) : undefined;
   const shown = filter === "all" ? all : all.filter((g) => statusOf(g) === filter);
   const tabs: { value: Filter; label: string }[] = [
     { value: "all", label: "All" },
@@ -51,6 +53,16 @@ export default async function Home({
   return (
     <main className="mx-auto max-w-md px-4 pb-28 pt-6">
       <h1 className="text-2xl font-semibold">Your gigs</h1>
+
+      {savedGig && (
+        <SavedBanner
+          key={savedGig.id}
+          gigId={savedGig.id}
+          text={`Saved: ${savedGig.title || savedGig.venue_address.split(",")[0]} · ${formatMoney(
+            resultForSavedGig(savedGig, savedGig.gig_services).realTakeHome,
+          )} take-home`}
+        />
+      )}
 
       {all.length > 0 && (
         <nav data-tour="gigs" className="mt-4 grid grid-cols-4 gap-1 rounded-xl bg-stone-200 p-1 text-center text-sm">

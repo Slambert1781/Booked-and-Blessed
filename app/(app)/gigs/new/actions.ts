@@ -141,5 +141,5 @@ export async function createGig(input: GigInput): Promise<{ error: string } | vo
     return { error: "Couldn't save the service dates. Please try again." };
   }
 
-  redirect(`/gigs/${gig.id}`);
+  redirect(`/?saved=${gig.id}`);
 }
