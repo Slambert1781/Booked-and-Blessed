@@ -8,7 +8,9 @@ import { relationshipSettingsFrom } from "@/lib/clients";
 import { TIER_EXAMPLE, TIER_LABEL, TIERS, type RushPeriod } from "@/lib/relationships";
 import { VehiclePicker, type ModelMpg, type Vehicle } from "@/components/VehiclePicker";
 import { US_STATES } from "@/lib/states";
-import { DEFAULT_LOCAL_MEAL_RATE, DEFAULT_OVERNIGHT_MEAL_RATE, num, type ProfileRow } from "@/lib/types";
+import { formatMoney } from "@/lib/format";
+import { FEDERAL_MEAL_RATES, MEAL_LABEL, MEALS, mealRatesFromProfile } from "@/lib/meals";
+import { num, type ProfileRow } from "@/lib/types";
 import { saveProfile } from "./actions";
 
 const str = (v: number | string | null | undefined) => (v === null || v === undefined ? "" : String(v));
@@ -52,10 +54,11 @@ export function ProfileForm({
   const [drivingRate, setDrivingRate] = useState(str(profile?.driving_rate));
   const [minHourlyRate, setMinHourlyRate] = useState(str(profile?.min_hourly_rate));
   const [taxRatePct, setTaxRatePct] = useState(str(profile?.tax_rate_pct));
-  const [localMealRate, setLocalMealRate] = useState(str(profile?.local_meal_rate ?? DEFAULT_LOCAL_MEAL_RATE));
-  const [overnightMealRate, setOvernightMealRate] = useState(
-    str(profile?.overnight_meal_rate ?? DEFAULT_OVERNIGHT_MEAL_RATE),
-  );
+  const [mealRates, setMealRates] = useState<Record<string, string>>(() => {
+    const r = mealRatesFromProfile(profile);
+    return Object.fromEntries(MEALS.map((m) => [m, String(r[m])]));
+  });
+  const usingFederal = MEALS.every((m) => Number(mealRates[m]) === FEDERAL_MEAL_RATES[m]);
   const rel = relationshipSettingsFrom(profile);
   const [tierDiscounts, setTierDiscounts] = useState<Record<string, string>>(
     Object.fromEntries(TIERS.map((t) => [t, String(rel.discounts[t])])),
@@ -88,8 +91,7 @@ export function ProfileForm({
         minHourlyRate,
         taxRatePct,
         defaultServiceHours,
-        localMealRate,
-        overnightMealRate,
+        mealRates,
         tierDiscounts,
         holidayRushEnabled,
         rushPeriods,
@@ -262,23 +264,35 @@ export function ProfileForm({
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Food</h2>
         <p className="text-sm text-stone-600">
-          What you usually spend on food when you&apos;re out for a gig. Turn &quot;Eating out&quot; off on any gig
-          where you bring your own.
+          What each meal costs you when you&apos;re out for a gig. They start at the federal per diem rates; change
+          any to match what you really spend. On each gig you choose which meals you&apos;ll buy.
         </p>
-        <Money
-          label="Meals on a local gig day"
-          value={localMealRate}
-          onChange={setLocalMealRate}
-          placeholder={String(DEFAULT_LOCAL_MEAL_RATE)}
-          hint="Per service day when you sleep at home. $20 is roughly one meal out."
-        />
-        <Money
-          label="Meals on an overnight or full day away"
-          value={overnightMealRate}
-          onChange={setOvernightMealRate}
-          placeholder={String(DEFAULT_OVERNIGHT_MEAL_RATE)}
-          hint="Per day when you stay overnight, counting the travel days. $68 is the federal per diem for meals."
-        />
+        <div className="grid grid-cols-2 gap-3">
+          {MEALS.map((m) => (
+            <Money
+              key={m}
+              label={MEAL_LABEL[m]}
+              value={mealRates[m]}
+              onChange={(v) => setMealRates({ ...mealRates, [m]: v })}
+              placeholder={String(FEDERAL_MEAL_RATES[m])}
+            />
+          ))}
+        </div>
+        <p className="text-xs text-stone-500">
+          {usingFederal
+            ? "Federal rates: $68 a day for all four."
+            : `Your rates: ${formatMoney(MEALS.reduce((t, m) => t + (Number(mealRates[m]) || 0), 0))} a day for all four.`}{" "}
+          Incidentals cover tips, coffee and the like.
+        </p>
+        {!usingFederal && (
+          <button
+            type="button"
+            className="text-sm text-indigo-700"
+            onClick={() => setMealRates(Object.fromEntries(MEALS.map((m) => [m, String(FEDERAL_MEAL_RATES[m])])))}
+          >
+            Use the federal rates
+          </button>
+        )}
       </section>
 
       <section className="space-y-3">

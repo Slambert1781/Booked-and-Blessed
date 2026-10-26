@@ -1,4 +1,5 @@
 import { calculateGig, type CalcGig, type GigResult } from "@/lib/calculateGig";
+import { parseMealChoice, parseMealRates } from "@/lib/meals";
 import type { ProfileRow } from "@/lib/types";
 import { num } from "@/lib/types";
 
@@ -52,8 +53,10 @@ export type GigRow = {
   lodging_nights?: number | null;
   eating_out?: boolean | null;
   count_drive_time?: boolean | null;
-  local_meal_rate_used?: Numeric;
-  overnight_meal_rate_used?: Numeric;
+  meals?: unknown;
+  meal_rates_used?: unknown;
+  food_stipend_type?: "per_day" | "flat" | null;
+  food_stipend_amount?: Numeric;
   created_at: string;
 };
 
@@ -94,6 +97,11 @@ export function resultForSavedGig(gig: GigRow, services: ServiceRow[], settings?
     stipendPerNight: num(gig.stipend_per_night),
     lodgingNights: gig.lodging_nights ?? null,
     eatingOut: gig.eating_out ?? true,
+    meals: parseMealChoice(gig.meals),
+    foodStipend:
+      gig.food_stipend_type && num(gig.food_stipend_amount ?? null) !== null
+        ? { type: gig.food_stipend_type, amount: num(gig.food_stipend_amount ?? null)! }
+        : null,
     countDriveTime: gig.count_drive_time ?? true,
     serviceHours: services.map((s) => num(s.duration_hours ?? null)),
     isUnion: gig.is_union ?? false,
@@ -104,9 +112,8 @@ export function resultForSavedGig(gig: GigRow, services: ServiceRow[], settings?
       mpg: num(gig.mpg_used) ?? 0,
       playingRate: num(gig.playing_rate_used) ?? 0,
       drivingRate: num(gig.driving_rate_used),
-      // Gigs saved before food costs existed have no meal rates, so no food cost.
-      localMealRate: num(gig.local_meal_rate_used ?? null),
-      overnightMealRate: num(gig.overnight_meal_rate_used ?? null),
+      // Gigs saved before food costs existed have no meal prices, so no food cost.
+      mealRates: parseMealRates(gig.meal_rates_used),
       taxRatePct: settings?.taxRatePct ?? null,
       minHourlyRate: settings?.minHourlyRate ?? null,
     },

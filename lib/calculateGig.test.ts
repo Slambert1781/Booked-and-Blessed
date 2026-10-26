@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateGig, type CalcGig, type CalcLookups, type CalcProfile } from "./calculateGig";
+import { FEDERAL_MEAL_RATES } from "./meals";
 
 const profile: CalcProfile = { mpg: 25, playingRate: 50, drivingRate: null };
 // 50 miles / 60 minutes each way -> 100 miles, 2 hours per round trip.
@@ -214,7 +215,8 @@ describe("calculateGig: hourly rate, tax and union", () => {
 });
 
 describe("calculateGig: food", () => {
-  const eater: CalcProfile = { ...profile, localMealRate: 20, overnightMealRate: 68 };
+  const eater: CalcProfile = { ...profile, mealRates: FEDERAL_MEAL_RATES };
+  const allMeals = { breakfast: true, lunch: true, dinner: true, incidentals: true };
 
   it("eating out off: no food cost", () => {
     const r = calculateGig(eater, { ...orchestra, eatingOut: false }, lookups);
@@ -222,21 +224,27 @@ describe("calculateGig: food", () => {
     expect(r.realTakeHome).toBeCloseTo(750 - 48 - 400);
   });
 
-  it("local gig across multiple service days: one local meal per service day", () => {
-    // 5 services on 4 distinct days.
-    const r = calculateGig(eater, { ...orchestra, eatingOut: true }, lookups);
-    expect(r.foodCost).toBe(80); // 4 days x $20
-    expect(r.realTakeHome).toBeCloseTo(750 - 48 - 80 - 400);
+  it("local gig across multiple service days: chosen meals for each service day", () => {
+    // 5 services on 4 distinct days; lunch + dinner = $47 a day.
+    const meals = { breakfast: false, lunch: true, dinner: true, incidentals: false };
+    const r = calculateGig(eater, { ...orchestra, meals }, lookups);
+    expect(r.foodDays).toBe(4);
+    expect(r.foodRate).toBe(47);
+    expect(r.foodCost).toBe(188);
+    expect(r.realTakeHome).toBeCloseTo(750 - 48 - 188 - 400);
   });
 
-  it("eating out is on by default", () => {
-    expect(calculateGig(eater, orchestra, lookups).foodCost).toBe(80);
+  it("a local gig starts with dinner only", () => {
+    const r = calculateGig(eater, orchestra, lookups);
+    expect(r.meals).toEqual({ breakfast: false, lunch: false, dinner: true, incidentals: false });
+    expect(r.foodCost).toBe(4 * 28);
   });
 
-  it("overnight gig: nights + 1 days at the overnight rate", () => {
+  it("overnight gig: nights + 1 days, all four meals by default (the $68 federal rate)", () => {
     // 4 service days -> 3 nights -> 4 days of meals.
     const r = calculateGig(eater, { ...orchestra, stayingOvernight: true, roomCostPerNight: 120 }, lookups);
     expect(r.nights).toBe(3);
+    expect(r.meals).toEqual(allMeals);
     expect(r.foodCost).toBe(272); // 4 x $68
     expect(r.realTakeHome).toBeCloseTo(750 - 12 - 360 - 272 - 100);
   });
@@ -247,16 +255,56 @@ describe("calculateGig: food", () => {
     expect(r.foodCost).toBe(272);
   });
 
+  it("uses your own meal prices", () => {
+    const pricey: CalcProfile = { ...profile, mealRates: { breakfast: 12, lunch: 18, dinner: 40, incidentals: 0 } };
+    const r = calculateGig(pricey, { ...wedding, meals: { ...allMeals, breakfast: false } }, lookups);
+    expect(r.foodCost).toBe(58);
+  });
+
   it("food counts toward the money behind the hourly rate", () => {
     const withFood = calculateGig(eater, { ...wedding, serviceHours: [2] }, lookups);
-    expect(withFood.netCash).toBeCloseTo(400 - 12 - 20);
-    expect(withFood.realHourlyRate).toBeCloseTo(368 / 4);
+    expect(withFood.netCash).toBeCloseTo(400 - 12 - 28);
+    expect(withFood.realHourlyRate).toBeCloseTo(360 / 4);
+  });
+});
+
+describe("calculateGig: food stipend", () => {
+  const eater: CalcProfile = { ...profile, mealRates: FEDERAL_MEAL_RATES };
+
+  it("per day: paid for every day away and added to take-home", () => {
+    const r = calculateGig(
+      eater,
+      { ...orchestra, stayingOvernight: true, foodStipend: { type: "per_day", amount: 50 } },
+      lookups,
+    );
+    expect(r.foodStipend).toBe(200); // 4 days
+    expect(r.realTakeHome).toBeCloseTo(750 + 200 - 12 - 272 - 100);
+  });
+
+  it("flat amount is paid once", () => {
+    const r = calculateGig(eater, { ...orchestra, foodStipend: { type: "flat", amount: 75 } }, lookups);
+    expect(r.foodStipend).toBe(75);
+  });
+
+  it("still paid when you're not eating out", () => {
+    const r = calculateGig(
+      eater,
+      { ...orchestra, eatingOut: false, foodStipend: { type: "per_day", amount: 20 } },
+      lookups,
+    );
+    expect(r.foodCost).toBe(0);
+    expect(r.foodStipend).toBe(80); // 4 service days
+  });
+
+  it("counts toward the hourly rate", () => {
+    const r = calculateGig(eater, { ...wedding, serviceHours: [2], foodStipend: { type: "flat", amount: 40 } }, lookups);
+    expect(r.netCash).toBeCloseTo(400 + 40 - 12 - 28);
   });
 });
 
 describe("calculateGig: food details", () => {
-  it("reports the days and rate used", () => {
-    const eater: CalcProfile = { ...profile, localMealRate: 20, overnightMealRate: 68 };
+  it("reports the days and daily cost used", () => {
+    const eater: CalcProfile = { ...profile, mealRates: FEDERAL_MEAL_RATES };
     const r = calculateGig(eater, { ...orchestra, stayingOvernight: true }, lookups);
     expect([r.foodDays, r.foodRate]).toEqual([4, 68]);
     expect(calculateGig(eater, { ...orchestra, eatingOut: false }, lookups).foodDays).toBe(0);

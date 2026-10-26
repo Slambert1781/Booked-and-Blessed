@@ -1,5 +1,7 @@
 // The gig maths. Pure function: no I/O, full precision (round only for display).
 
+import { dailyMealCost, defaultMeals, type MealChoice, type MealRates } from "@/lib/meals";
+
 export type CalcProfile = {
   mpg: number;
   playingRate: number;
@@ -8,10 +10,8 @@ export type CalcProfile = {
   taxRatePct?: number | null;
   /** The lowest real hourly rate you want to work for; null = no minimum. */
   minHourlyRate?: number | null;
-  /** Food per day on a local gig (no overnight stay). */
-  localMealRate?: number | null;
-  /** Food per day when staying overnight or away all day. */
-  overnightMealRate?: number | null;
+  /** What each meal costs you (breakfast, lunch, dinner, incidentals). */
+  mealRates?: MealRates | null;
 };
 
 export type CalcGig = {
@@ -36,6 +36,10 @@ export type CalcGig = {
 
   /** Buying meals on this gig. Off = no food cost. Defaults to on. */
   eatingOut?: boolean;
+  /** Which meals you buy each day. Defaults to dinner locally, all four overnight. */
+  meals?: MealChoice | null;
+  /** A food allowance (per diem) the employer pays: per day, or one flat amount. */
+  foodStipend?: { type: "per_day" | "flat"; amount: number } | null;
   /**
    * Count your time behind the wheel. Off = no drive time cost, and the
    * hourly rate uses playing hours only. Defaults to on.
@@ -71,9 +75,12 @@ export type GigResult = {
   lodgingStipend: number;
   lodgingCost: number;
   foodCost: number;
-  /** Days of meals counted, and the rate used for each. */
+  /** Days of meals counted, and the cost of the chosen meals for one day. */
   foodDays: number;
   foodRate: number;
+  /** The meals counted each day. */
+  meals: MealChoice;
+  foodStipend: number;
   /** Take-home before the tax set-aside. */
   takeHomeBeforeTax: number;
   /** What you keep: after travel, lodging, food, drive time and the tax set-aside. */
@@ -126,16 +133,25 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
   const lodgingCost = gig.stayingOvernight && !gig.hosted ? n(gig.roomCostPerNight) * nights : 0;
   const lodgingStipend = gig.stayingOvernight ? n(gig.stipendPerNight) * nights : 0;
 
-  const foodDays = gig.eatingOut === false ? 0 : gig.stayingOvernight ? nights + 1 : serviceDays;
-  const foodRate = gig.stayingOvernight ? n(profile.overnightMealRate) : n(profile.localMealRate);
+  // Days away: each service day locally, or every day from arrival to departure overnight.
+  const daysAway = gig.stayingOvernight ? nights + 1 : serviceDays;
+  const meals = gig.meals ?? defaultMeals(gig.stayingOvernight);
+  const foodDays = gig.eatingOut === false ? 0 : daysAway;
+  const foodRate = profile.mealRates ? dailyMealCost(profile.mealRates, meals) : 0;
   const foodCost = foodDays * foodRate;
+  const foodStipend = !gig.foodStipend
+    ? 0
+    : gig.foodStipend.type === "per_day"
+      ? gig.foodStipend.amount * daysAway
+      : gig.foodStipend.amount;
 
   const takeHomeBeforeTax =
-    totalPay + mileageReimbursement + lodgingStipend - gasCost - lodgingCost - foodCost - driveTimeCost;
+    totalPay + mileageReimbursement + lodgingStipend + foodStipend - gasCost - lodgingCost - foodCost - driveTimeCost;
 
   const playingHours = (gig.serviceHours ?? []).reduce<number>((sum, h) => sum + (h ?? 0), 0);
   const totalHours = playingHours + (countDrive ? totalDriveHours : 0);
-  const netCash = totalPay + mileageReimbursement + lodgingStipend - gasCost - lodgingCost - foodCost;
+  const netCash =
+    totalPay + mileageReimbursement + lodgingStipend + foodStipend - gasCost - lodgingCost - foodCost;
   const realHourlyRate = playingHours > 0 ? netCash / totalHours : null;
   const meetsMinimum =
     realHourlyRate === null || profile.minHourlyRate == null ? null : realHourlyRate >= profile.minHourlyRate;
@@ -160,6 +176,8 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
     foodCost,
     foodDays,
     foodRate,
+    meals,
+    foodStipend,
     takeHomeBeforeTax,
     realTakeHome,
     playingHours,

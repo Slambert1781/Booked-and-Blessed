@@ -11,6 +11,7 @@ import type { GasPrice } from "@/lib/eia/gasPrice";
 import { formatDate, formatMoney } from "@/lib/format";
 import type { GigStatus, ServiceKind } from "@/lib/gigs";
 import type { FormService, GasSource, GigFormValues } from "@/lib/gigForm";
+import { dailyMealCost, defaultMeals, MEAL_LABEL, MEALS, type MealChoice } from "@/lib/meals";
 import { createGig, lookupDrive, updateGig } from "./actions";
 
 type Service = FormService;
@@ -28,7 +29,8 @@ type Field =
   | "reimbRate"
   | "reimbFlat"
   | "roomCost"
-  | "gasPrice";
+  | "gasPrice"
+  | "foodStipend";
 
 const FIELD_LABEL: Record<Field, string> = {
   title: "Gig name",
@@ -41,6 +43,7 @@ const FIELD_LABEL: Record<Field, string> = {
   reimbFlat: "Flat mileage amount",
   roomCost: "Room cost per night",
   gasPrice: "Gas price",
+  foodStipend: "Food stipend amount",
 };
 
 const today = () => {
@@ -110,6 +113,12 @@ export function GigForm({
   const [stipendPerNight, setStipendPerNight] = useState(initial?.stipendPerNight ?? "");
   const [lodgingNights, setLodgingNights] = useState(initial?.lodgingNights ?? "");
   const [eatingOut, setEatingOut] = useState(initial?.eatingOut ?? true);
+  // Null until you pick meals yourself: then it follows the gig (dinner locally, all overnight).
+  const [chosenMeals, setChosenMeals] = useState<MealChoice | null>(initial?.meals ?? null);
+  const meals = chosenMeals ?? defaultMeals(stayingOvernight);
+  const [paysFoodStipend, setPaysFoodStipend] = useState(initial?.paysFoodStipend ?? false);
+  const [foodStipendType, setFoodStipendType] = useState<"per_day" | "flat">(initial?.foodStipendType ?? "per_day");
+  const [foodStipendAmount, setFoodStipendAmount] = useState(initial?.foodStipendAmount ?? "");
   const [countDriveTime, setCountDriveTime] = useState(initial?.countDriveTime ?? true);
 
   const [miles, setMiles] = useState(initial?.miles ?? "");
@@ -211,6 +220,11 @@ export function GigForm({
         stipendPerNight: parse(stipendPerNight),
         lodgingNights: parse(lodgingNights),
         eatingOut,
+        meals,
+        foodStipend:
+          paysFoodStipend && parse(foodStipendAmount) !== null
+            ? { type: foodStipendType, amount: parse(foodStipendAmount)! }
+            : null,
         countDriveTime,
         serviceHours: dated.map((s) => parse(s.hours)),
         isUnion,
@@ -221,7 +235,7 @@ export function GigForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     profile, gigType, feePerService, flatFee, services, paysMileage, reimbType, reimbRatePerMile,
-    flatReimbAmount, stayingOvernight, hosted, roomCostPerNight, stipendPerNight, lodgingNights, eatingOut, countDriveTime, miles,
+    flatReimbAmount, stayingOvernight, hosted, roomCostPerNight, stipendPerNight, lodgingNights, eatingOut, meals, paysFoodStipend, foodStipendType, foodStipendAmount, countDriveTime, miles,
     minutes, gasPrice, isUnion, pensionPct,
   ]);
 
@@ -245,6 +259,7 @@ export function GigForm({
     if (paysMileage && reimbType === "per_mile" && parse(reimbRatePerMile) === null) missing.push("reimbRate");
     if (paysMileage && reimbType === "flat" && parse(flatReimbAmount) === null) missing.push("reimbFlat");
     if (stayingOvernight && !hosted && parse(roomCostPerNight) === null) missing.push("roomCost");
+    if (paysFoodStipend && parse(foodStipendAmount) === null) missing.push("foodStipend");
     if (!parse(gasPrice)) missing.push("gasPrice");
     return missing;
   }
@@ -283,6 +298,10 @@ export function GigForm({
         stipendPerNight,
         lodgingNights,
         eatingOut,
+        meals: chosenMeals,
+        paysFoodStipend,
+        foodStipendType,
+        foodStipendAmount,
         countDriveTime,
         isUnion,
         pensionPct,
@@ -607,14 +626,65 @@ export function GigForm({
         </p>
 
         <Toggle label="Eating out" checked={eatingOut} onChange={setEatingOut} />
-        <p className="-mt-1 px-1 text-xs text-stone-500">
-          {eatingOut
-            ? stayingOvernight
-              ? `${formatMoney(profile.overnightMealRate ?? 0)} a day for each day away, including travel days.`
-              : `${formatMoney(profile.localMealRate ?? 0)} for each day with a rehearsal or performance.`
-            : "No food cost for this gig (you're bringing your own, or meals are provided)."}{" "}
-          Change the amounts in your profile.
-        </p>
+        {eatingOut ? (
+          <div className="space-y-2 rounded-xl bg-white p-3 shadow-sm">
+            <p className="text-sm font-medium">Which meals, each day?</p>
+            <div className="grid grid-cols-2 gap-2">
+              {MEALS.map((m) => (
+                <label
+                  key={m}
+                  className={`flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 ${meals[m] ? "border-indigo-600 bg-indigo-50" : "border-stone-200"}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 shrink-0 accent-indigo-700"
+                    checked={meals[m]}
+                    onChange={(e) => setChosenMeals({ ...meals, [m]: e.target.checked })}
+                  />
+                  <span className="min-w-0 leading-tight">
+                    <span className="block">{MEAL_LABEL[m]}</span>
+                    <span className="block text-xs tabular-nums text-stone-500">
+                      {formatMoney(profile.mealRates?.[m] ?? 0)}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-stone-500">
+              {formatMoney(profile.mealRates ? dailyMealCost(profile.mealRates, meals) : 0)} a day,{" "}
+              {stayingOvernight
+                ? "for each day away including travel days."
+                : "for each day with a rehearsal or performance."}{" "}
+              Meal prices are in your profile.
+            </p>
+          </div>
+        ) : (
+          <p className="-mt-1 px-1 text-xs text-stone-500">
+            No food cost for this gig (you&apos;re bringing your own, or meals are provided).
+          </p>
+        )}
+
+        <Toggle label="They pay a food stipend" checked={paysFoodStipend} onChange={setPaysFoodStipend} />
+        {paysFoodStipend && (
+          <div className="space-y-3 rounded-xl bg-white p-3 shadow-sm">
+            <div className="flex gap-4">
+              <Radio name="foodStipend" label="Per day" checked={foodStipendType === "per_day"} onChange={() => setFoodStipendType("per_day")} />
+              <Radio name="foodStipend" label="Flat amount" checked={foodStipendType === "flat"} onChange={() => setFoodStipendType("flat")} />
+            </div>
+            <MoneyField
+              label={foodStipendType === "per_day" ? "Food stipend per day" : "Food stipend for the whole gig"}
+              value={foodStipendAmount}
+              onChange={setFoodStipendAmount}
+              placeholder={foodStipendType === "per_day" ? "e.g. 50" : "e.g. 150"}
+              invalid={bad("foodStipend")}
+              hint={
+                foodStipendType === "per_day"
+                  ? "Paid for each day away, and added to your take-home."
+                  : "Added to your take-home."
+              }
+            />
+          </div>
+        )}
       </section>
 
       <section className="space-y-2">

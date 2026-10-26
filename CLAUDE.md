@@ -35,9 +35,9 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
 - Playing rate per hour; optional driving rate (blank = playing rate)
 - Optional minimum real hourly rate, tax set-aside %, typical service length
   (hours, default 2.5)
-- Meal rates: **meals on a local gig day** (default $20, roughly one meal
-  out) and **meals on an overnight or full day away** (default $68, the
-  federal per diem rate for meals). Both optional and editable.
+- Meal prices: **breakfast, lunch, dinner and incidentals**, defaulting to
+  the federal (GSA) standard per diem for meals and incidentals: $16, $19,
+  $28 and $5 ($68 a day). Each can be changed; blank = the federal rate.
 - Relationship tier discounts and Holiday Rush periods (see below)
 
 ## A gig
@@ -51,8 +51,10 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
   start time (calendar only) and a length in hours
 - Extras: union gig (with pension %), mileage reimbursement (per mile or
   flat), staying overnight (hosted or room cost per night, lodging stipend
-  per night, number of nights), **eating out** (on by default) and **count
-  my drive time** (on by default)
+  per night, number of nights), **eating out** (on by default) with **which
+  meals** each day (starts as dinner for a local gig, all four when staying
+  overnight), a **food stipend** (per day or a flat amount), and **count my
+  drive time** (on by default)
 - Gas price: this week's EIA average for the state (or region, then
   national), or typed in
 - Decision: undecided / booked (`taken`) / declined
@@ -77,17 +79,20 @@ mileage_reimb    = !pays_mileage ? 0
 lodging_cost     = staying_overnight && !hosted ? room_cost_per_night * nights : 0
 lodging_stipend  = staying_overnight ? stipend_per_night * nights : 0
 
-food_cost        = !eating_out ? 0
-                 : staying_overnight ? (nights + 1) * overnight_meal_rate
-                 : service_days * local_meal_rate
+days_away        = staying_overnight ? nights + 1 : service_days
+daily_meal_cost  = sum of the profile price of each chosen meal
+food_cost        = eating_out ? days_away * daily_meal_cost : 0
+food_stipend     = !pays_food_stipend ? 0
+                 : per_day ? food_stipend_amount * days_away
+                 : food_stipend_amount
 
-take_home_before_tax = total_pay + mileage_reimb + lodging_stipend
+take_home_before_tax = total_pay + mileage_reimb + lodging_stipend + food_stipend
                        - gas_cost - lodging_cost - food_cost - drive_time_cost
 tax_set_aside        = total_pay * tax_rate_pct / 100
 real_take_home       = take_home_before_tax - tax_set_aside
 
 playing_hours    = sum of the services' lengths
-net_cash         = total_pay + mileage_reimb + lodging_stipend
+net_cash         = total_pay + mileage_reimb + lodging_stipend + food_stipend
                    - gas_cost - lodging_cost - food_cost
 counted_hours    = playing_hours + (count_drive_time ? total_drive_hrs : 0)
 real_hourly_rate = playing_hours > 0 ? net_cash / counted_hours : none
@@ -97,7 +102,7 @@ pension          = union ? total_pay * pension_pct / 100 : 0   (shown separately
 - The hourly rate and verdict are before tax (rates are quoted before tax).
 - Each saved gig stores the lookups and profile values it was worked out with
   (miles, minutes, gas price and its source/date, MPG, playing and driving
-  rates, meal rates), so its result never changes when gas prices or the
+  rates, meal prices), so its result never changes when gas prices or the
   profile change later. Tax %, minimum rate, tier discounts and rush periods
   are read live from the profile.
 - If a lookup fails, say so clearly and let the user type the value in.
@@ -118,7 +123,8 @@ pension          = union ? total_pay * pension_pct / 100 : 0   (shown separately
 
 Take-home shown largest (after tax). Then the real hourly rate with its
 verdict and explanation, and a breakdown in this order: total pay, mileage
-reimbursement, lodging stipend, gas, lodging, **food**, drive time, taxes.
+reimbursement, food stipend, lodging stipend, gas, lodging, **food** (days ×
+daily cost, with the meals listed), drive time, taxes.
 Union pension appears separately. Then round trips, total miles and drive
 time.
 
@@ -128,15 +134,18 @@ Every user table has `user_id` → `auth.users` and owner-only RLS policies.
 
 - **profiles**: home address (text, lat/lng, state), vehicle fields, mpg,
   mpg_is_manual, playing_rate, driving_rate, min_hourly_rate, tax_rate_pct,
-  default_service_hours, local_meal_rate (default 20), overnight_meal_rate
-  (default 68), tier_discounts, holiday_rush_enabled, rush_periods.
+  default_service_hours, meal_breakfast_rate / meal_lunch_rate /
+  meal_dinner_rate / meal_incidentals_rate (defaults 16 / 19 / 28 / 5),
+  tier_discounts, holiday_rush_enabled, rush_periods.
   (rush_discount_keep_pct is no longer used.)
 - **gigs**: client_id, title, gig_type, venue (text, lat/lng), fees,
   mileage and lodging fields, lodging_nights, eating_out (default true),
+  meals (which meals, jsonb), food_stipend_type (per_day | flat),
+  food_stipend_amount,
   count_drive_time (default true),
   is_union, pension_pct, status, decided_at, and the stored values: one-way
   miles/minutes, gas price/source/date, mpg_used, playing_rate_used,
-  driving_rate_used, local_meal_rate_used, overnight_meal_rate_used.
+  driving_rate_used, meal_rates_used (jsonb).
 - **gig_services**: gig_id, kind (rehearsal | performance), service_date,
   start_time, duration_hours.
 - **clients**: name, kind, tier, notes.

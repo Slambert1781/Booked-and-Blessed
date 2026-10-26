@@ -8,7 +8,7 @@ import {
   type TierDiscounts,
 } from "@/lib/relationships";
 import { createClient } from "@/lib/supabase/server";
-import { DEFAULT_LOCAL_MEAL_RATE, DEFAULT_OVERNIGHT_MEAL_RATE } from "@/lib/types";
+import { FEDERAL_MEAL_RATES, MEALS, type MealRates } from "@/lib/meals";
 
 export type ProfileInput = {
   name: string;
@@ -28,8 +28,7 @@ export type ProfileInput = {
   minHourlyRate: string;
   taxRatePct: string;
   defaultServiceHours: string;
-  localMealRate: string;
-  overnightMealRate: string;
+  mealRates: Record<string, string>;
   tierDiscounts: Record<string, string>;
   holidayRushEnabled: boolean;
   rushPeriods: RushPeriod[];
@@ -68,16 +67,15 @@ export async function saveProfile(input: ProfileInput): Promise<{ error: string 
   if (defaultServiceHours === null || defaultServiceHours > 24)
     return { error: "Enter how many hours a typical rehearsal or concert lasts, e.g. 2.5." };
 
-  // Meal rates: blank uses the default; 0 is allowed (never eat out).
-  const mealRate = (s: string, fallback: number) => {
-    if (s.trim() === "") return fallback;
-    const v = Number(s.replace(/[$,]/g, ""));
-    return Number.isFinite(v) && v >= 0 && v <= 1000 ? v : NaN;
-  };
-  const localMealRate = mealRate(input.localMealRate, DEFAULT_LOCAL_MEAL_RATE);
-  const overnightMealRate = mealRate(input.overnightMealRate, DEFAULT_OVERNIGHT_MEAL_RATE);
-  if (Number.isNaN(localMealRate) || Number.isNaN(overnightMealRate))
-    return { error: "Meal amounts must be dollar amounts, or leave them blank for the defaults." };
+  // Meal prices: blank uses the federal rate; 0 is allowed.
+  const mealRates = {} as MealRates;
+  for (const m of MEALS) {
+    const s = (input.mealRates[m] ?? "").trim();
+    const v = s === "" ? FEDERAL_MEAL_RATES[m] : Number(s.replace(/[$,]/g, ""));
+    if (!Number.isFinite(v) || v < 0 || v > 1000)
+      return { error: "Meal prices must be dollar amounts, or leave them blank for the federal rates." };
+    mealRates[m] = v;
+  }
 
   const tierDiscounts = {} as TierDiscounts;
   for (const t of TIERS) {
@@ -109,8 +107,10 @@ export async function saveProfile(input: ProfileInput): Promise<{ error: string 
     min_hourly_rate: minHourlyRate,
     tax_rate_pct: taxRatePct,
     default_service_hours: defaultServiceHours,
-    local_meal_rate: localMealRate,
-    overnight_meal_rate: overnightMealRate,
+    meal_breakfast_rate: mealRates.breakfast,
+    meal_lunch_rate: mealRates.lunch,
+    meal_dinner_rate: mealRates.dinner,
+    meal_incidentals_rate: mealRates.incidentals,
     tier_discounts: tierDiscounts,
     holiday_rush_enabled: input.holidayRushEnabled,
     rush_periods: rushPeriods,

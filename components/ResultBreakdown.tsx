@@ -1,4 +1,5 @@
 import type { GigResult } from "@/lib/calculateGig";
+import { describeMeals } from "@/lib/meals";
 import type { VerdictResult } from "@/lib/relationships";
 import { formatHours, formatMiles, formatMoney } from "@/lib/format";
 
@@ -35,6 +36,9 @@ export function ResultBreakdown({
         {r.mileageReimbursement > 0 && (
           <Row label="Mileage reimbursement" value={`+ ${formatMoney(r.mileageReimbursement)}`} positive />
         )}
+        {r.foodStipend > 0 && (
+          <Row label="Food stipend" value={`+ ${formatMoney(r.foodStipend)}`} positive />
+        )}
         {r.lodgingStipend > 0 && (
           <Row
             label={`Lodging stipend (${r.nights} ${r.nights === 1 ? "night" : "nights"})`}
@@ -53,7 +57,7 @@ export function ResultBreakdown({
         {r.foodCost > 0 && (
           <Row
             label="Food"
-            detail={`${r.foodDays} ${r.foodDays === 1 ? "day" : "days"} × ${formatMoney(r.foodRate)}`}
+            detail={`${r.foodDays} ${r.foodDays === 1 ? "day" : "days"} × ${formatMoney(r.foodRate)} (${describeMeals(r.meals)})`}
             value={`− ${formatMoney(r.foodCost)}`}
             negative
           />

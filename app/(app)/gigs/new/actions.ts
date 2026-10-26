@@ -6,7 +6,8 @@ import { oneWayDrive } from "@/lib/google/routes";
 import { getProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { GIG_STATUSES, type GigStatus, type ServiceKind } from "@/lib/gigs";
-import { DEFAULT_LOCAL_MEAL_RATE, DEFAULT_OVERNIGHT_MEAL_RATE, isProfileComplete, num } from "@/lib/types";
+import { defaultMeals, mealRatesFromProfile, parseMealRates, type MealChoice } from "@/lib/meals";
+import { isProfileComplete, num } from "@/lib/types";
 
 type Place = { address: string; lat: number | null; lng: number | null };
 
@@ -34,6 +35,11 @@ export type GigInput = {
   services: { kind: ServiceKind; date: string; time: string; hours: string }[];
   lodgingNights: string;
   eatingOut: boolean;
+  /** Null = the default meals for the gig (dinner locally, all overnight). */
+  meals: MealChoice | null;
+  paysFoodStipend: boolean;
+  foodStipendType: "per_day" | "flat";
+  foodStipendAmount: string;
   countDriveTime: boolean;
   paysMileage: boolean;
   reimbType: "per_mile" | "flat";
@@ -107,6 +113,9 @@ function validate(
   const pension = input.isUnion ? amount(input.pensionPct) : null;
   if (pension !== null && (Number.isNaN(pension) || pension > 100))
     return { error: "Pension contribution must be a percentage between 0 and 100." };
+  const foodStipend = input.paysFoodStipend ? amount(input.foodStipendAmount) : null;
+  if (input.paysFoodStipend && (foodStipend === null || Number.isNaN(foodStipend)))
+    return { error: "Enter the food stipend amount." };
   if ([rate, reimbFlat, room, stipend].some((v) => Number.isNaN(v)))
     return { error: "Check the amounts: they must be numbers." };
   if (miles === null || Number.isNaN(miles) || minutes === null || Number.isNaN(minutes))
@@ -138,6 +147,9 @@ function validate(
       stipend_per_night: input.stayingOvernight ? stipend : null,
       lodging_nights: nights,
       eating_out: input.eatingOut,
+      meals: input.meals ?? defaultMeals(input.stayingOvernight),
+      food_stipend_type: input.paysFoodStipend ? input.foodStipendType : null,
+      food_stipend_amount: input.paysFoodStipend ? foodStipend : null,
       count_drive_time: input.countDriveTime,
       is_union: input.isUnion,
       pension_pct: pension,
@@ -181,8 +193,7 @@ export async function createGig(input: GigInput): Promise<{ error: string } | vo
       mpg_used: num(profile!.mpg),
       playing_rate_used: num(profile!.playing_rate),
       driving_rate_used: num(profile!.driving_rate),
-      local_meal_rate_used: num(profile!.local_meal_rate ?? null) ?? DEFAULT_LOCAL_MEAL_RATE,
-      overnight_meal_rate_used: num(profile!.overnight_meal_rate ?? null) ?? DEFAULT_OVERNIGHT_MEAL_RATE,
+      meal_rates_used: mealRatesFromProfile(profile),
       decided_at: v.status === "undecided" ? null : new Date().toISOString(),
     })
     .select("id")
@@ -212,7 +223,7 @@ export async function updateGig(id: string, input: GigInput): Promise<{ error: s
   const supabase = await createClient();
   const { data: existing } = await supabase
     .from("gigs")
-    .select("status, decided_at, local_meal_rate_used, overnight_meal_rate_used")
+    .select("status, decided_at, meal_rates_used")
     .eq("id", id)
     .maybeSingle();
   if (!existing) return { error: "That gig no longer exists." };
@@ -220,14 +231,10 @@ export async function updateGig(id: string, input: GigInput): Promise<{ error: s
   const decidedAt =
     v.status === "undecided" ? null : v.status === existing.status ? existing.decided_at : new Date().toISOString();
 
-  // Gigs saved before food costs existed pick up today's meal rates the first
-  // time they're edited; after that their rates stay fixed like the rest.
-  const p = result.profile;
+  // Gigs saved before food costs existed pick up today's meal prices the first
+  // time they're edited; after that their prices stay fixed like the rest.
   const mealRates = {
-    local_meal_rate_used:
-      existing.local_meal_rate_used ?? num(p?.local_meal_rate ?? null) ?? DEFAULT_LOCAL_MEAL_RATE,
-    overnight_meal_rate_used:
-      existing.overnight_meal_rate_used ?? num(p?.overnight_meal_rate ?? null) ?? DEFAULT_OVERNIGHT_MEAL_RATE,
+    meal_rates_used: parseMealRates(existing.meal_rates_used) ?? mealRatesFromProfile(result.profile),
   };
 
   const { error } = await supabase

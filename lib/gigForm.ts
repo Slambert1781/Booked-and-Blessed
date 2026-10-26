@@ -1,6 +1,7 @@
 import type { AddressValue } from "@/components/AddressInput";
 import type { GigRow, GigStatus, ServiceKind, ServiceRow } from "@/lib/gigs";
 import { statusOf } from "@/lib/gigs";
+import { parseMealChoice, type MealChoice } from "@/lib/meals";
 import { num } from "@/lib/types";
 
 export type FormService = { kind: ServiceKind; date: string; time: string; hours: string };
@@ -28,6 +29,10 @@ export type GigFormValues = {
   /** "" = work it out from the dates. */
   lodgingNights: string;
   eatingOut: boolean;
+  meals: MealChoice | null;
+  paysFoodStipend: boolean;
+  foodStipendType: "per_day" | "flat";
+  foodStipendAmount: string;
   countDriveTime: boolean;
   isUnion: boolean;
   pensionPct: string;
@@ -75,6 +80,10 @@ export function gigToFormValues(gig: GigRow, services: ServiceRow[], mode: "edit
     stipendPerNight: str(gig.stipend_per_night),
     lodgingNights: gig.lodging_nights ? String(gig.lodging_nights) : "",
     eatingOut: gig.eating_out ?? true,
+    meals: parseMealChoice(gig.meals),
+    paysFoodStipend: !!gig.food_stipend_type,
+    foodStipendType: gig.food_stipend_type ?? "per_day",
+    foodStipendAmount: str(gig.food_stipend_amount ?? null),
     countDriveTime: gig.count_drive_time ?? true,
     isUnion: gig.is_union ?? false,
     pensionPct: str(gig.pension_pct),

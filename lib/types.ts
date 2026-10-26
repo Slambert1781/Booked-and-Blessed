@@ -19,18 +19,16 @@ export type ProfileRow = {
   min_hourly_rate?: number | string | null;
   tax_rate_pct?: number | string | null;
   default_service_hours?: number | string | null;
-  local_meal_rate?: number | string | null;
-  overnight_meal_rate?: number | string | null;
+  meal_breakfast_rate?: number | string | null;
+  meal_lunch_rate?: number | string | null;
+  meal_dinner_rate?: number | string | null;
+  meal_incidentals_rate?: number | string | null;
   // Added with the client directory update.
   tier_discounts?: unknown;
   holiday_rush_enabled?: boolean | null;
   rush_periods?: unknown;
   rush_discount_keep_pct?: number | string | null;
 };
-
-/** Default meal rates: about one meal out, and the federal per diem for meals. */
-export const DEFAULT_LOCAL_MEAL_RATE = 20;
-export const DEFAULT_OVERNIGHT_MEAL_RATE = 68;
 
 export function num(v: number | string | null | undefined): number | null {
   if (v === null || v === undefined || v === "") return null;

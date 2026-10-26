@@ -7,7 +7,8 @@ import { gigToFormValues } from "@/lib/gigForm";
 import { settingsFrom } from "@/lib/gigs";
 import { loadGig } from "@/lib/loadGig";
 import { getProfile } from "@/lib/profile";
-import { DEFAULT_LOCAL_MEAL_RATE, DEFAULT_OVERNIGHT_MEAL_RATE, isProfileComplete, num } from "@/lib/types";
+import { mealRatesFromProfile } from "@/lib/meals";
+import { isProfileComplete, num } from "@/lib/types";
 import { GigForm } from "./GigForm";
 
 export default async function NewGigPage({ searchParams }: { searchParams: Promise<{ copy?: string }> }) {
@@ -45,8 +46,7 @@ export default async function NewGigPage({ searchParams }: { searchParams: Promi
           mpg: num(p.mpg)!,
           playingRate: num(p.playing_rate)!,
           drivingRate: num(p.driving_rate),
-          localMealRate: num(p.local_meal_rate ?? null) ?? DEFAULT_LOCAL_MEAL_RATE,
-          overnightMealRate: num(p.overnight_meal_rate ?? null) ?? DEFAULT_OVERNIGHT_MEAL_RATE,
+          mealRates: mealRatesFromProfile(p),
           ...settingsFrom(p),
         }}
         defaultServiceHours={num(p.default_service_hours ?? null) ?? undefined}
