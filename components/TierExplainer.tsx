@@ -66,7 +66,7 @@ export function TierExplainer({
           <strong>{colour(minFor(rushTier("highly_favored")))}</strong>.
         </p>
         <p>
-          <strong>Hard floor:</strong> a gig that loses money after gas and lodging is always red. Loyalty shouldn&apos;t
+          <strong>Hard floor:</strong> a gig that loses money after gas, lodging and food is always red. Loyalty shouldn&apos;t
           mean paying to play.
         </p>
       </div>

@@ -93,7 +93,7 @@ export type Verdict = "green" | "yellow" | "red";
 export const YELLOW_BAND = 0.15;
 
 export type VerdictInput = {
-  /** Money after gas and lodging, before valuing drive time. */
+  /** Money after gas, lodging and food, before valuing drive time. */
   netCash: number;
   /** Union pension paid on your behalf; counts toward the verdict. */
   pension: number;
@@ -147,7 +147,7 @@ export function judgeGig(i: VerdictInput): VerdictResult | null {
       hourly,
       effectiveMin: i.minHourlyRate === null ? null : i.minHourlyRate * (1 - discountPct / 100),
       discountPct,
-      explanation: `Red: this gig loses ${formatMoney(-i.netCash)} after gas and lodging. No relationship tier makes paying to play worth it.`,
+      explanation: `Red: this gig loses ${formatMoney(-i.netCash)} after gas, lodging and food. No relationship tier makes paying to play worth it.`,
     };
   }
   if (hourly === null || i.minHourlyRate === null) return null;

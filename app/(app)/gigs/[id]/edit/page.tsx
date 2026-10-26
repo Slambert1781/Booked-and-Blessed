@@ -7,7 +7,7 @@ import { gigToFormValues } from "@/lib/gigForm";
 import { settingsFrom } from "@/lib/gigs";
 import { loadGig } from "@/lib/loadGig";
 import { getProfile } from "@/lib/profile";
-import { num } from "@/lib/types";
+import { DEFAULT_LOCAL_MEAL_RATE, DEFAULT_OVERNIGHT_MEAL_RATE, num } from "@/lib/types";
 import { DeleteGigButton } from "@/components/DeleteGigButton";
 import { GigForm } from "../../new/GigForm";
 
@@ -40,6 +40,15 @@ export default async function EditGigPage({ params }: { params: Promise<{ id: st
           mpg: num(gig.mpg_used) ?? 0,
           playingRate: num(gig.playing_rate_used) ?? 0,
           drivingRate: num(gig.driving_rate_used),
+          // The gig's own meal rates; older gigs take today's profile rates when edited.
+          localMealRate:
+            num(gig.local_meal_rate_used ?? null) ??
+            num(me?.profile?.local_meal_rate ?? null) ??
+            DEFAULT_LOCAL_MEAL_RATE,
+          overnightMealRate:
+            num(gig.overnight_meal_rate_used ?? null) ??
+            num(me?.profile?.overnight_meal_rate ?? null) ??
+            DEFAULT_OVERNIGHT_MEAL_RATE,
           ...settingsFrom(me?.profile),
         }}
         defaultServiceHours={num(me?.profile?.default_service_hours ?? null) ?? undefined}

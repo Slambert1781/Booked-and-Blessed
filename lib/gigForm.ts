@@ -27,6 +27,7 @@ export type GigFormValues = {
   stipendPerNight: string;
   /** "" = work it out from the dates. */
   lodgingNights: string;
+  eatingOut: boolean;
   isUnion: boolean;
   pensionPct: string;
   miles: string;
@@ -72,6 +73,7 @@ export function gigToFormValues(gig: GigRow, services: ServiceRow[], mode: "edit
     roomCostPerNight: str(gig.room_cost_per_night),
     stipendPerNight: str(gig.stipend_per_night),
     lodgingNights: gig.lodging_nights ? String(gig.lodging_nights) : "",
+    eatingOut: gig.eating_out ?? true,
     isUnion: gig.is_union ?? false,
     pensionPct: str(gig.pension_pct),
     miles: str(gig.one_way_miles),

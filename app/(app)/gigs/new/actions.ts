@@ -6,7 +6,7 @@ import { oneWayDrive } from "@/lib/google/routes";
 import { getProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { GIG_STATUSES, type GigStatus, type ServiceKind } from "@/lib/gigs";
-import { isProfileComplete, num } from "@/lib/types";
+import { DEFAULT_LOCAL_MEAL_RATE, DEFAULT_OVERNIGHT_MEAL_RATE, isProfileComplete, num } from "@/lib/types";
 
 type Place = { address: string; lat: number | null; lng: number | null };
 
@@ -33,6 +33,7 @@ export type GigInput = {
   flatFee: string;
   services: { kind: ServiceKind; date: string; time: string; hours: string }[];
   lodgingNights: string;
+  eatingOut: boolean;
   paysMileage: boolean;
   reimbType: "per_mile" | "flat";
   reimbRatePerMile: string;
@@ -135,6 +136,7 @@ function validate(
       room_cost_per_night: input.stayingOvernight && !input.hosted ? room : null,
       stipend_per_night: input.stayingOvernight ? stipend : null,
       lodging_nights: nights,
+      eating_out: input.eatingOut,
       is_union: input.isUnion,
       pension_pct: pension,
       one_way_miles: miles,
@@ -177,6 +179,8 @@ export async function createGig(input: GigInput): Promise<{ error: string } | vo
       mpg_used: num(profile!.mpg),
       playing_rate_used: num(profile!.playing_rate),
       driving_rate_used: num(profile!.driving_rate),
+      local_meal_rate_used: num(profile!.local_meal_rate ?? null) ?? DEFAULT_LOCAL_MEAL_RATE,
+      overnight_meal_rate_used: num(profile!.overnight_meal_rate ?? null) ?? DEFAULT_OVERNIGHT_MEAL_RATE,
       decided_at: v.status === "undecided" ? null : new Date().toISOString(),
     })
     .select("id")
@@ -204,13 +208,30 @@ export async function updateGig(id: string, input: GigInput): Promise<{ error: s
   if ("error" in v) return v;
 
   const supabase = await createClient();
-  const { data: existing } = await supabase.from("gigs").select("status, decided_at").eq("id", id).maybeSingle();
+  const { data: existing } = await supabase
+    .from("gigs")
+    .select("status, decided_at, local_meal_rate_used, overnight_meal_rate_used")
+    .eq("id", id)
+    .maybeSingle();
   if (!existing) return { error: "That gig no longer exists." };
 
   const decidedAt =
     v.status === "undecided" ? null : v.status === existing.status ? existing.decided_at : new Date().toISOString();
 
-  const { error } = await supabase.from("gigs").update({ ...v.fields, decided_at: decidedAt }).eq("id", id);
+  // Gigs saved before food costs existed pick up today's meal rates the first
+  // time they're edited; after that their rates stay fixed like the rest.
+  const p = result.profile;
+  const mealRates = {
+    local_meal_rate_used:
+      existing.local_meal_rate_used ?? num(p?.local_meal_rate ?? null) ?? DEFAULT_LOCAL_MEAL_RATE,
+    overnight_meal_rate_used:
+      existing.overnight_meal_rate_used ?? num(p?.overnight_meal_rate ?? null) ?? DEFAULT_OVERNIGHT_MEAL_RATE,
+  };
+
+  const { error } = await supabase
+    .from("gigs")
+    .update({ ...v.fields, ...mealRates, decided_at: decidedAt })
+    .eq("id", id);
   if (error) return { error: "Couldn't save your changes. Please try again." };
 
   // Replace the schedule with what's on the form: add the new rows first, then

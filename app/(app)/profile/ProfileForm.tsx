@@ -8,7 +8,7 @@ import { relationshipSettingsFrom } from "@/lib/clients";
 import { TIER_EXAMPLE, TIER_LABEL, TIERS, type RushPeriod } from "@/lib/relationships";
 import { VehiclePicker, type Vehicle } from "@/components/VehiclePicker";
 import { US_STATES } from "@/lib/states";
-import { num, type ProfileRow } from "@/lib/types";
+import { DEFAULT_LOCAL_MEAL_RATE, DEFAULT_OVERNIGHT_MEAL_RATE, num, type ProfileRow } from "@/lib/types";
 import { saveProfile } from "./actions";
 
 const str = (v: number | string | null | undefined) => (v === null || v === undefined ? "" : String(v));
@@ -50,6 +50,10 @@ export function ProfileForm({
   const [drivingRate, setDrivingRate] = useState(str(profile?.driving_rate));
   const [minHourlyRate, setMinHourlyRate] = useState(str(profile?.min_hourly_rate));
   const [taxRatePct, setTaxRatePct] = useState(str(profile?.tax_rate_pct));
+  const [localMealRate, setLocalMealRate] = useState(str(profile?.local_meal_rate ?? DEFAULT_LOCAL_MEAL_RATE));
+  const [overnightMealRate, setOvernightMealRate] = useState(
+    str(profile?.overnight_meal_rate ?? DEFAULT_OVERNIGHT_MEAL_RATE),
+  );
   const rel = relationshipSettingsFrom(profile);
   const [tierDiscounts, setTierDiscounts] = useState<Record<string, string>>(
     Object.fromEntries(TIERS.map((t) => [t, String(rel.discounts[t])])),
@@ -82,6 +86,8 @@ export function ProfileForm({
         minHourlyRate,
         taxRatePct,
         defaultServiceHours,
+        localMealRate,
+        overnightMealRate,
         tierDiscounts,
         holidayRushEnabled,
         rushPeriods,
@@ -239,9 +245,31 @@ export function ProfileForm({
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Food</h2>
+        <p className="text-sm text-stone-600">
+          What you usually spend on food when you&apos;re out for a gig. Turn &quot;Eating out&quot; off on any gig
+          where you bring your own.
+        </p>
+        <Money
+          label="Meals on a local gig day"
+          value={localMealRate}
+          onChange={setLocalMealRate}
+          placeholder={String(DEFAULT_LOCAL_MEAL_RATE)}
+          hint="Per service day when you sleep at home. $20 is roughly one meal out."
+        />
+        <Money
+          label="Meals on an overnight or full day away"
+          value={overnightMealRate}
+          onChange={setOvernightMealRate}
+          placeholder={String(DEFAULT_OVERNIGHT_MEAL_RATE)}
+          hint="Per day when you stay overnight, counting the travel days. $68 is the federal per diem for meals."
+        />
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-lg font-semibold">Relationship tiers</h2>
         <p className="text-sm text-stone-600">
-          How much each client tier lowers your minimum hourly rate. A gig that loses money after gas and lodging
+          How much each client tier lowers your minimum hourly rate. A gig that loses money after gas, lodging and food
           is always red, whatever the tier.
         </p>
         <div className="divide-y divide-stone-200 rounded-2xl bg-white px-4 shadow-sm">

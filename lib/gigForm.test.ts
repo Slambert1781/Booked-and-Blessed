@@ -69,6 +69,7 @@ describe("gigToFormValues", () => {
     expect(v.gasSource).toBeNull();
     expect(v.feePerService).toBe("150"); // still editable on the form
     expect(v.title).toBe(""); // a copy needs a new name
+    expect(v.eatingOut).toBe(true); // older gigs have no setting: on by default
   });
 
   it("a hand-typed gas price has no source", () => {

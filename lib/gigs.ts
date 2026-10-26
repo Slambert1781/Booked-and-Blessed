@@ -50,6 +50,9 @@ export type GigRow = {
   pension_pct?: Numeric;
   client_id?: string | null;
   lodging_nights?: number | null;
+  eating_out?: boolean | null;
+  local_meal_rate_used?: Numeric;
+  overnight_meal_rate_used?: Numeric;
   created_at: string;
 };
 
@@ -89,6 +92,7 @@ export function resultForSavedGig(gig: GigRow, services: ServiceRow[], settings?
     roomCostPerNight: num(gig.room_cost_per_night),
     stipendPerNight: num(gig.stipend_per_night),
     lodgingNights: gig.lodging_nights ?? null,
+    eatingOut: gig.eating_out ?? true,
     serviceHours: services.map((s) => num(s.duration_hours ?? null)),
     isUnion: gig.is_union ?? false,
     pensionPct: num(gig.pension_pct ?? null),
@@ -98,6 +102,9 @@ export function resultForSavedGig(gig: GigRow, services: ServiceRow[], settings?
       mpg: num(gig.mpg_used) ?? 0,
       playingRate: num(gig.playing_rate_used) ?? 0,
       drivingRate: num(gig.driving_rate_used),
+      // Gigs saved before food costs existed have no meal rates, so no food cost.
+      localMealRate: num(gig.local_meal_rate_used ?? null),
+      overnightMealRate: num(gig.overnight_meal_rate_used ?? null),
       taxRatePct: settings?.taxRatePct ?? null,
       minHourlyRate: settings?.minHourlyRate ?? null,
     },

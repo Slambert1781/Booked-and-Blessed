@@ -109,6 +109,7 @@ export function GigForm({
   const [roomCostPerNight, setRoomCostPerNight] = useState(initial?.roomCostPerNight ?? "");
   const [stipendPerNight, setStipendPerNight] = useState(initial?.stipendPerNight ?? "");
   const [lodgingNights, setLodgingNights] = useState(initial?.lodgingNights ?? "");
+  const [eatingOut, setEatingOut] = useState(initial?.eatingOut ?? true);
 
   const [miles, setMiles] = useState(initial?.miles ?? "");
   const [minutes, setMinutes] = useState(initial?.minutes ?? "");
@@ -208,6 +209,7 @@ export function GigForm({
         roomCostPerNight: parse(roomCostPerNight),
         stipendPerNight: parse(stipendPerNight),
         lodgingNights: parse(lodgingNights),
+        eatingOut,
         serviceHours: dated.map((s) => parse(s.hours)),
         isUnion,
         pensionPct: parse(pensionPct),
@@ -217,8 +219,8 @@ export function GigForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     profile, gigType, feePerService, flatFee, services, paysMileage, reimbType, reimbRatePerMile,
-    flatReimbAmount, stayingOvernight, hosted, roomCostPerNight, stipendPerNight, lodgingNights, miles, minutes,
-    gasPrice, isUnion, pensionPct,
+    flatReimbAmount, stayingOvernight, hosted, roomCostPerNight, stipendPerNight, lodgingNights, eatingOut, miles,
+    minutes, gasPrice, isUnion, pensionPct,
   ]);
 
   const verdict = useMemo(
@@ -278,6 +280,7 @@ export function GigForm({
         roomCostPerNight,
         stipendPerNight,
         lodgingNights,
+        eatingOut,
         isUnion,
         pensionPct,
         oneWayMiles: miles,
@@ -592,6 +595,16 @@ export function GigForm({
             <MoneyField label="Lodging stipend per night (if any)" value={stipendPerNight} onChange={setStipendPerNight} />
           </div>
         )}
+
+        <Toggle label="Eating out" checked={eatingOut} onChange={setEatingOut} />
+        <p className="-mt-1 px-1 text-xs text-stone-500">
+          {eatingOut
+            ? stayingOvernight
+              ? `${formatMoney(profile.overnightMealRate ?? 0)} a day for each day away, including travel days.`
+              : `${formatMoney(profile.localMealRate ?? 0)} for each day with a rehearsal or performance.`
+            : "No food cost for this gig (you're bringing your own, or meals are provided)."}{" "}
+          Change the amounts in your profile.
+        </p>
       </section>
 
       <section className="space-y-2">

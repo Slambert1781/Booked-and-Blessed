@@ -8,6 +8,10 @@ export type CalcProfile = {
   taxRatePct?: number | null;
   /** The lowest real hourly rate you want to work for; null = no minimum. */
   minHourlyRate?: number | null;
+  /** Food per day on a local gig (no overnight stay). */
+  localMealRate?: number | null;
+  /** Food per day when staying overnight or away all day. */
+  overnightMealRate?: number | null;
 };
 
 export type CalcGig = {
@@ -29,6 +33,9 @@ export type CalcGig = {
   lodgingNights?: number | null;
   roomCostPerNight?: number | null;
   stipendPerNight?: number | null;
+
+  /** Buying meals on this gig. Off = no food cost. Defaults to on. */
+  eatingOut?: boolean;
 
   /** Length of each service in hours (same order as serviceDates). */
   serviceHours?: (number | null)[];
@@ -56,16 +63,20 @@ export type GigResult = {
   mileageReimbursement: number;
   lodgingStipend: number;
   lodgingCost: number;
+  foodCost: number;
+  /** Days of meals counted, and the rate used for each. */
+  foodDays: number;
+  foodRate: number;
   /** Take-home before the tax set-aside. */
   takeHomeBeforeTax: number;
-  /** What you keep: after travel, lodging, drive time and the tax set-aside. */
+  /** What you keep: after travel, lodging, food, drive time and the tax set-aside. */
   realTakeHome: number;
 
   /** Hours spent playing (sum of service lengths). */
   playingHours: number;
   /** Playing plus driving hours. */
   totalHours: number;
-  /** Money in hand after gas and lodging, before valuing drive time. */
+  /** Money in hand after gas, lodging and food, before valuing drive time. */
   netCash: number;
   /** netCash per hour of playing and driving; null when no hours are known. */
   realHourlyRate: number | null;
@@ -107,12 +118,16 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
   const lodgingCost = gig.stayingOvernight && !gig.hosted ? n(gig.roomCostPerNight) * nights : 0;
   const lodgingStipend = gig.stayingOvernight ? n(gig.stipendPerNight) * nights : 0;
 
+  const foodDays = gig.eatingOut === false ? 0 : gig.stayingOvernight ? nights + 1 : serviceDays;
+  const foodRate = gig.stayingOvernight ? n(profile.overnightMealRate) : n(profile.localMealRate);
+  const foodCost = foodDays * foodRate;
+
   const takeHomeBeforeTax =
-    totalPay + mileageReimbursement + lodgingStipend - gasCost - lodgingCost - driveTimeCost;
+    totalPay + mileageReimbursement + lodgingStipend - gasCost - lodgingCost - foodCost - driveTimeCost;
 
   const playingHours = (gig.serviceHours ?? []).reduce<number>((sum, h) => sum + (h ?? 0), 0);
   const totalHours = playingHours + totalDriveHours;
-  const netCash = totalPay + mileageReimbursement + lodgingStipend - gasCost - lodgingCost;
+  const netCash = totalPay + mileageReimbursement + lodgingStipend - gasCost - lodgingCost - foodCost;
   const realHourlyRate = playingHours > 0 ? netCash / totalHours : null;
   const meetsMinimum =
     realHourlyRate === null || profile.minHourlyRate == null ? null : realHourlyRate >= profile.minHourlyRate;
@@ -133,6 +148,9 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
     mileageReimbursement,
     lodgingStipend,
     lodgingCost,
+    foodCost,
+    foodDays,
+    foodRate,
     takeHomeBeforeTax,
     realTakeHome,
     playingHours,

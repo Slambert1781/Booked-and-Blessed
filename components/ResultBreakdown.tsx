@@ -50,6 +50,14 @@ export function ResultBreakdown({
             negative
           />
         )}
+        {r.foodCost > 0 && (
+          <Row
+            label="Food"
+            detail={`${r.foodDays} ${r.foodDays === 1 ? "day" : "days"} × ${formatMoney(r.foodRate)}`}
+            value={`− ${formatMoney(r.foodCost)}`}
+            negative
+          />
+        )}
         <Row
           label="Your drive time"
           detail={hourly !== null ? `${formatHours(r.totalDriveHours)} at ${formatMoney(hourly)}/hr` : undefined}
@@ -150,7 +158,7 @@ function HourlyRate({ result: r, verdict }: { result: GigResult; verdict: Verdic
       {r.realHourlyRate !== null ? (
         <p className="mt-1 text-xs text-stone-500">
           Over {formatHours(r.totalHours)}: {formatHours(r.playingHours)} playing + {formatHours(r.totalDriveHours)}{" "}
-          driving, after gas and lodging.
+          driving, after gas, lodging and food.
         </p>
       ) : (
         <p className="mt-1 text-sm text-stone-500">

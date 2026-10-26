@@ -212,3 +212,53 @@ describe("calculateGig: hourly rate, tax and union", () => {
     expect(calculateGig(profile, { ...orchestra, isUnion: false, pensionPct: 10 }, lookups).pensionContribution).toBe(0);
   });
 });
+
+describe("calculateGig: food", () => {
+  const eater: CalcProfile = { ...profile, localMealRate: 20, overnightMealRate: 68 };
+
+  it("eating out off: no food cost", () => {
+    const r = calculateGig(eater, { ...orchestra, eatingOut: false }, lookups);
+    expect(r.foodCost).toBe(0);
+    expect(r.realTakeHome).toBeCloseTo(750 - 48 - 400);
+  });
+
+  it("local gig across multiple service days: one local meal per service day", () => {
+    // 5 services on 4 distinct days.
+    const r = calculateGig(eater, { ...orchestra, eatingOut: true }, lookups);
+    expect(r.foodCost).toBe(80); // 4 days x $20
+    expect(r.realTakeHome).toBeCloseTo(750 - 48 - 80 - 400);
+  });
+
+  it("eating out is on by default", () => {
+    expect(calculateGig(eater, orchestra, lookups).foodCost).toBe(80);
+  });
+
+  it("overnight gig: nights + 1 days at the overnight rate", () => {
+    // 4 service days -> 3 nights -> 4 days of meals.
+    const r = calculateGig(eater, { ...orchestra, stayingOvernight: true, roomCostPerNight: 120 }, lookups);
+    expect(r.nights).toBe(3);
+    expect(r.foodCost).toBe(272); // 4 x $68
+    expect(r.realTakeHome).toBeCloseTo(750 - 12 - 360 - 272 - 100);
+  });
+
+  it("overnight food follows a hand-set number of nights", () => {
+    // One concert, three nights away -> four days of meals.
+    const r = calculateGig(eater, { ...wedding, stayingOvernight: true, hosted: true, lodgingNights: 3 }, lookups);
+    expect(r.foodCost).toBe(272);
+  });
+
+  it("food counts toward the money behind the hourly rate", () => {
+    const withFood = calculateGig(eater, { ...wedding, serviceHours: [2] }, lookups);
+    expect(withFood.netCash).toBeCloseTo(400 - 12 - 20);
+    expect(withFood.realHourlyRate).toBeCloseTo(368 / 4);
+  });
+});
+
+describe("calculateGig: food details", () => {
+  it("reports the days and rate used", () => {
+    const eater: CalcProfile = { ...profile, localMealRate: 20, overnightMealRate: 68 };
+    const r = calculateGig(eater, { ...orchestra, stayingOvernight: true }, lookups);
+    expect([r.foodDays, r.foodRate]).toEqual([4, 68]);
+    expect(calculateGig(eater, { ...orchestra, eatingOut: false }, lookups).foodDays).toBe(0);
+  });
+});
