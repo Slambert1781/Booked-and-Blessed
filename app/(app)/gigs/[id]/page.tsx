@@ -1,30 +1,25 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { ResultBreakdown } from "@/components/ResultBreakdown";
 import { formatDate, formatMiles, formatMoney, formatTime } from "@/lib/format";
-import { resultForSavedGig, statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
-import { createClient } from "@/lib/supabase/server";
+import { resultForSavedGig, statusOf } from "@/lib/gigs";
+import { loadGig } from "@/lib/loadGig";
 import { num } from "@/lib/types";
 import { deleteGig } from "./actions";
 import { DecisionButtons } from "./DecisionButtons";
 
-export default async function GigResultPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function GigResultPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ updated?: string }>;
+}) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/sign-in");
-
-  const { data: gig } = await supabase.from("gigs").select("*").eq("id", id).maybeSingle<GigRow>();
-  if (!gig) notFound();
-  const { data: services } = await supabase
-    .from("gig_services")
-    .select("id, service_date, start_time")
-    .eq("gig_id", id)
-    .order("service_date")
-    .order("start_time", { nullsFirst: true })
-    .returns<ServiceRow[]>();
+  const { updated } = await searchParams;
+  const loaded = await loadGig(id);
+  if (!loaded) notFound();
+  const { gig, services } = loaded;
 
   const result = resultForSavedGig(gig, services ?? []);
   const gasPrice = num(gig.gas_price) ?? 0;
@@ -41,6 +36,21 @@ export default async function GigResultPage({ params }: { params: Promise<{ id: 
           ? `Orchestra · ${gig.number_of_services} services at ${formatMoney(num(gig.fee_per_service) ?? 0)}`
           : "Flat fee"}
       </p>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <Link href={`/gigs/${gig.id}/edit`} className="btn-secondary py-2 text-center text-sm">
+          Edit gig
+        </Link>
+        <Link href={`/gigs/new?copy=${gig.id}`} className="btn-secondary py-2 text-center text-sm">
+          Make a copy
+        </Link>
+      </div>
+
+      {updated && (
+        <p role="status" className="mt-4 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white">
+          ✓ Changes saved
+        </p>
+      )}
 
       <div className="mt-6">
         <ResultBreakdown result={result} />

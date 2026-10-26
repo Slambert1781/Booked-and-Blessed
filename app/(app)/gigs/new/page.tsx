@@ -1,15 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getGasPrice, type GasPrice } from "@/lib/eia/gasPrice";
+import { gigToFormValues } from "@/lib/gigForm";
+import { loadGig } from "@/lib/loadGig";
 import { getProfile } from "@/lib/profile";
 import { isProfileComplete, num } from "@/lib/types";
 import { GigForm } from "./GigForm";
 
-export default async function NewGigPage() {
+export default async function NewGigPage({ searchParams }: { searchParams: Promise<{ copy?: string }> }) {
   const result = await getProfile();
   if (!result) redirect("/sign-in");
   if (!isProfileComplete(result.profile)) redirect("/profile");
   const p = result.profile!;
+
+  const { copy } = await searchParams;
+  const source = copy ? await loadGig(copy) : null;
 
   let gas: GasPrice | null = null;
   try {
@@ -20,13 +25,22 @@ export default async function NewGigPage() {
 
   return (
     <main className="mx-auto max-w-md px-4 pb-16 pt-6">
-      <Link href="/" className="text-sm text-indigo-700">
-        ← Gigs
+      <Link href={source ? `/gigs/${source.gig.id}` : "/"} className="text-sm text-indigo-700">
+        ← {source ? "Back to gig" : "Gigs"}
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold">New gig</h1>
+      <h1 className="mt-2 text-2xl font-semibold">{source ? "Copy of gig" : "New gig"}</h1>
+      {source && (
+        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Copied from <strong>{source.gig.title || source.gig.venue_address}</strong>. Update the{" "}
+          <strong>dates</strong> and check the <strong>pay</strong>, since fees often change from year to year.
+          Today&apos;s gas price and your current car and rates are used.
+        </p>
+      )}
       <GigForm
         profile={{ mpg: num(p.mpg)!, playingRate: num(p.playing_rate)!, drivingRate: num(p.driving_rate) }}
         gas={gas}
+        initial={source ? gigToFormValues(source.gig, source.services, "copy") : undefined}
+        mode={source ? { kind: "copy" } : { kind: "new" }}
       />
     </main>
   );

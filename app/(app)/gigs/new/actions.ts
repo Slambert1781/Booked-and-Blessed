@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { oneWayDrive } from "@/lib/google/routes";
 import { getProfile } from "@/lib/profile";
@@ -54,12 +55,12 @@ function amount(s: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : NaN;
 }
 
-export async function createGig(input: GigInput): Promise<{ error: string } | void> {
-  const result = await getProfile();
-  if (!result) redirect("/sign-in");
-  const profile = result.profile;
-  if (!isProfileComplete(profile)) redirect("/profile");
+type GigRowFields = Record<string, unknown>;
 
+/** Check the form and turn it into database fields (shared by create and update). */
+function validate(
+  input: GigInput,
+): { error: string } | { fields: GigRowFields; services: { date: string; time: string }[]; status: GigStatus } {
   const services = input.services.filter((s) => s.date);
   const fee = amount(input.feePerService);
   const flat = amount(input.flatFee);
@@ -91,11 +92,10 @@ export async function createGig(input: GigInput): Promise<{ error: string } | vo
 
   const status: GigStatus = input.status && GIG_STATUSES.includes(input.status) ? input.status : "undecided";
 
-  const supabase = await createClient();
-  const { data: gig, error } = await supabase
-    .from("gigs")
-    .insert({
-      user_id: result.userId,
+  return {
+    status,
+    services,
+    fields: {
       title: input.title.trim() || null,
       gig_type: input.gigType,
       venue_address: input.venue.address.trim(),
@@ -118,28 +118,77 @@ export async function createGig(input: GigInput): Promise<{ error: string } | vo
       gas_price: gas,
       gas_price_source: input.gasPriceSource || "Entered by hand",
       gas_price_date: input.gasPriceDate,
+      status,
+    },
+  };
+}
+
+const serviceRows = (userId: string, gigId: string, services: { date: string; time: string }[]) =>
+  services.map((s) => ({ user_id: userId, gig_id: gigId, service_date: s.date, start_time: s.time || null }));
+
+export async function createGig(input: GigInput): Promise<{ error: string } | void> {
+  const result = await getProfile();
+  if (!result) redirect("/sign-in");
+  const profile = result.profile;
+  if (!isProfileComplete(profile)) redirect("/profile");
+
+  const v = validate(input);
+  if ("error" in v) return v;
+
+  const supabase = await createClient();
+  const { data: gig, error } = await supabase
+    .from("gigs")
+    .insert({
+      ...v.fields,
+      user_id: result.userId,
+      // The profile values this gig is worked out with, frozen.
       mpg_used: num(profile!.mpg),
       playing_rate_used: num(profile!.playing_rate),
       driving_rate_used: num(profile!.driving_rate),
-      status,
-      decided_at: status === "undecided" ? null : new Date().toISOString(),
+      decided_at: v.status === "undecided" ? null : new Date().toISOString(),
     })
     .select("id")
     .single();
   if (error || !gig) return { error: "Couldn't save the gig. Please try again." };
 
-  const { error: servicesError } = await supabase.from("gig_services").insert(
-    services.map((s) => ({
-      user_id: result.userId,
-      gig_id: gig.id,
-      service_date: s.date,
-      start_time: s.time || null,
-    })),
-  );
+  const { error: servicesError } = await supabase.from("gig_services").insert(serviceRows(result.userId, gig.id, v.services));
   if (servicesError) {
     await supabase.from("gigs").delete().eq("id", gig.id);
     return { error: "Couldn't save the service dates. Please try again." };
   }
 
   redirect(`/?saved=${gig.id}`);
+}
+
+/**
+ * Save changes to an existing gig. Keeps the MPG and hourly rates it was
+ * originally worked out with; everything on the form can change.
+ */
+export async function updateGig(id: string, input: GigInput): Promise<{ error: string } | void> {
+  const result = await getProfile();
+  if (!result) redirect("/sign-in");
+
+  const v = validate(input);
+  if ("error" in v) return v;
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase.from("gigs").select("status, decided_at").eq("id", id).maybeSingle();
+  if (!existing) return { error: "That gig no longer exists." };
+
+  const decidedAt =
+    v.status === "undecided" ? null : v.status === existing.status ? existing.decided_at : new Date().toISOString();
+
+  const { error } = await supabase.from("gigs").update({ ...v.fields, decided_at: decidedAt }).eq("id", id);
+  if (error) return { error: "Couldn't save your changes. Please try again." };
+
+  // Replace the schedule with what's on the form: add the new rows first, then
+  // remove the old ones, so a failure never leaves the gig without dates.
+  const { data: old } = await supabase.from("gig_services").select("id").eq("gig_id", id);
+  const { error: insError } = await supabase.from("gig_services").insert(serviceRows(result.userId, id, v.services));
+  if (insError) return { error: "Couldn't update the service dates. Please try again." };
+  const oldIds = (old ?? []).map((r) => r.id);
+  if (oldIds.length) await supabase.from("gig_services").delete().in("id", oldIds);
+
+  revalidatePath("/", "layout");
+  redirect(`/gigs/${id}?updated=1`);
 }

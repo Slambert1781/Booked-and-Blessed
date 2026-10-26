@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { AddressInput, type AddressValue } from "@/components/AddressInput";
 import { DecisionPicker } from "@/components/DecisionPicker";
 import { ResultBreakdown } from "@/components/ResultBreakdown";
@@ -8,9 +8,12 @@ import { calculateGig, type CalcProfile } from "@/lib/calculateGig";
 import type { GasPrice } from "@/lib/eia/gasPrice";
 import { formatDate } from "@/lib/format";
 import type { GigStatus } from "@/lib/gigs";
-import { createGig, lookupDrive } from "./actions";
+import type { GasSource, GigFormValues } from "@/lib/gigForm";
+import { createGig, lookupDrive, updateGig } from "./actions";
 
 type Service = { date: string; time: string };
+
+export type GigFormMode = { kind: "new" } | { kind: "copy" } | { kind: "edit"; gigId: string };
 
 const today = () => {
   const d = new Date();
@@ -22,34 +25,50 @@ const parse = (s: string) => {
   return s.trim() !== "" && Number.isFinite(n) && n >= 0 ? n : null;
 };
 
-export function GigForm({ profile, gas }: { profile: CalcProfile; gas: GasPrice | null }) {
-  const [title, setTitle] = useState("");
-  const [gigType, setGigType] = useState<"orchestra" | "flat_fee">("orchestra");
-  const [venue, setVenue] = useState<AddressValue>({ address: "", lat: null, lng: null, state: null });
-  const [feePerService, setFeePerService] = useState("");
-  const [flatFee, setFlatFee] = useState("");
-  const [services, setServices] = useState<Service[]>([{ date: today(), time: "" }]);
+export function GigForm({
+  profile,
+  gas,
+  initial,
+  mode = { kind: "new" },
+}: {
+  profile: CalcProfile;
+  /** Today's EIA average (null if unavailable). */
+  gas: GasPrice | null;
+  /** Starting values when editing or copying a gig. */
+  initial?: GigFormValues;
+  mode?: GigFormMode;
+}) {
+  const todaysGas: GasSource = gas ? { areaName: gas.areaName, periodDate: gas.periodDate, kind: gas.kind } : null;
 
-  const [paysMileage, setPaysMileage] = useState(false);
-  const [reimbType, setReimbType] = useState<"per_mile" | "flat">("per_mile");
-  const [reimbRatePerMile, setReimbRatePerMile] = useState("");
-  const [flatReimbAmount, setFlatReimbAmount] = useState("");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [gigType, setGigType] = useState<"orchestra" | "flat_fee">(initial?.gigType ?? "orchestra");
+  const [venue, setVenue] = useState<AddressValue>(initial?.venue ?? { address: "", lat: null, lng: null, state: null });
+  const [feePerService, setFeePerService] = useState(initial?.feePerService ?? "");
+  const [flatFee, setFlatFee] = useState(initial?.flatFee ?? "");
+  const [services, setServices] = useState<Service[]>(initial?.services.length ? initial.services : [{ date: today(), time: "" }]);
 
-  const [stayingOvernight, setStayingOvernight] = useState(false);
-  const [hosted, setHosted] = useState(false);
-  const [roomCostPerNight, setRoomCostPerNight] = useState("");
-  const [stipendPerNight, setStipendPerNight] = useState("");
+  const [paysMileage, setPaysMileage] = useState(initial?.paysMileage ?? false);
+  const [reimbType, setReimbType] = useState<"per_mile" | "flat">(initial?.reimbType ?? "per_mile");
+  const [reimbRatePerMile, setReimbRatePerMile] = useState(initial?.reimbRatePerMile ?? "");
+  const [flatReimbAmount, setFlatReimbAmount] = useState(initial?.flatReimbAmount ?? "");
 
-  const [miles, setMiles] = useState("");
-  const [minutes, setMinutes] = useState("");
-  const [distanceIsManual, setDistanceIsManual] = useState(false);
+  const [stayingOvernight, setStayingOvernight] = useState(initial?.stayingOvernight ?? false);
+  const [hosted, setHosted] = useState(initial?.hosted ?? false);
+  const [roomCostPerNight, setRoomCostPerNight] = useState(initial?.roomCostPerNight ?? "");
+  const [stipendPerNight, setStipendPerNight] = useState(initial?.stipendPerNight ?? "");
+
+  const [miles, setMiles] = useState(initial?.miles ?? "");
+  const [minutes, setMinutes] = useState(initial?.minutes ?? "");
+  const [distanceIsManual, setDistanceIsManual] = useState(initial?.distanceIsManual ?? false);
   const [driveStatus, setDriveStatus] = useState<"idle" | "loading" | "found" | "error">("idle");
   const [driveError, setDriveError] = useState<string | null>(null);
 
-  const [gasPrice, setGasPrice] = useState(gas ? String(gas.price) : "");
-  const [gasEdited, setGasEdited] = useState(!gas);
+  // Editing keeps the gig's saved price; new gigs and copies start from today's average.
+  const startGas = initial?.gasPrice ? { price: initial.gasPrice, source: initial.gasSource } : { price: gas ? String(gas.price) : "", source: todaysGas };
+  const [gasPrice, setGasPrice] = useState(startGas.price);
+  const [gasSource, setGasSource] = useState<GasSource>(startGas.source);
 
-  const [status, setStatus] = useState<GigStatus | null>(null);
+  const [status, setStatus] = useState<GigStatus | null>(initial?.status ?? null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -70,9 +89,15 @@ export function GigForm({ profile, gas }: { profile: CalcProfile; gas: GasPrice 
     setDriveStatus("found");
   }
 
-  // Look up the drive as soon as a suggested address (with coordinates) is picked.
+  // Look up the drive as soon as a suggested address (with coordinates) is
+  // picked, but not for the venue a saved gig already had.
+  const lookedUp = useRef(initial ? `${initial.venue.lat},${initial.venue.lng}` : "");
   useEffect(() => {
-    if (venue.lat !== null && venue.lng !== null) runLookup(venue);
+    const key = `${venue.lat},${venue.lng}`;
+    if (venue.lat !== null && venue.lng !== null && key !== lookedUp.current) {
+      lookedUp.current = key;
+      runLookup(venue);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venue.lat, venue.lng]);
 
@@ -111,7 +136,7 @@ export function GigForm({ profile, gas }: { profile: CalcProfile; gas: GasPrice 
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const r = await createGig({
+      const input = {
         title,
         gigType,
         venue: { address: venue.address, lat: venue.lat, lng: venue.lng },
@@ -130,10 +155,11 @@ export function GigForm({ profile, gas }: { profile: CalcProfile; gas: GasPrice 
         oneWayMinutes: minutes,
         distanceIsManual,
         gasPrice,
-        gasPriceSource: gas && !gasEdited ? gas.areaName : "Entered by hand",
-        gasPriceDate: gas && !gasEdited ? gas.periodDate : null,
+        gasPriceSource: gasSource ? gasSource.areaName : "Entered by hand",
+        gasPriceDate: gasSource ? gasSource.periodDate : null,
         status,
-      });
+      };
+      const r = mode.kind === "edit" ? await updateGig(mode.gigId, input) : await createGig(input);
       if (r?.error) setError(r.error);
     });
   }
@@ -285,28 +311,37 @@ export function GigForm({ profile, gas }: { profile: CalcProfile; gas: GasPrice 
           value={gasPrice}
           onChange={(v) => {
             setGasPrice(v);
-            setGasEdited(true);
+            setGasSource(null);
           }}
         />
-        {gas && !gasEdited && (
+        {gasSource && (
           <p className="text-xs text-stone-500">
-            {gas.kind === "state" ? "State" : gas.kind === "region" ? "Regional" : "National"} average for{" "}
-            {gas.areaName}, week of {formatDate(gas.periodDate, { weekday: undefined, year: "numeric" })} (U.S. EIA)
+            {gasSource.kind === "state"
+              ? "State average"
+              : gasSource.kind === "region"
+                ? "Regional average"
+                : gasSource.kind === "national"
+                  ? "National average"
+                  : "Average"}{" "}
+            for {gasSource.areaName}
+            {gasSource.periodDate &&
+              `, week of ${formatDate(gasSource.periodDate, { weekday: undefined, year: "numeric" })}`}{" "}
+            (U.S. EIA)
           </p>
         )}
-        {gas && gasEdited && (
+        {gas && gasSource?.periodDate !== gas.periodDate && (
           <button
             type="button"
             className="text-xs text-indigo-700"
             onClick={() => {
               setGasPrice(String(gas.price));
-              setGasEdited(false);
+              setGasSource(todaysGas);
             }}
           >
-            Use the EIA average (${gas.price.toFixed(3)} for {gas.areaName})
+            Use this week&apos;s EIA average (${gas.price.toFixed(3)} for {gas.areaName})
           </button>
         )}
-        {!gas && (
+        {!gas && !gasSource && (
           <p className="text-sm text-amber-800">
             Couldn&apos;t get today&apos;s gas price from the EIA. Type in what you&apos;re paying.
           </p>
@@ -322,14 +357,26 @@ export function GigForm({ profile, gas }: { profile: CalcProfile; gas: GasPrice 
 
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">Your decision</h2>
-        <p className="text-sm text-stone-600">Optional. You can decide later from the gig&apos;s page.</p>
+        {mode.kind !== "edit" && (
+          <p className="text-sm text-stone-600">Optional. You can decide later from the gig&apos;s page.</p>
+        )}
         <DecisionPicker value={status} onChange={setStatus} allowNone />
-        {status === "taken" && <p className="text-sm text-emerald-800">It&apos;ll go on your calendar when you save.</p>}
+        {status === "taken" && initial?.status !== "taken" && (
+          <p className="text-sm text-emerald-800">It&apos;ll go on your calendar when you save.</p>
+        )}
       </section>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-red-800">{error}</p>}
       <button type="submit" className="btn-primary sticky bottom-4 w-full shadow-lg" disabled={pending}>
-        {pending ? "Saving…" : status === "taken" ? "Save and book it" : status === "declined" ? "Save as declined" : "Save gig"}
+        {pending
+          ? "Saving…"
+          : mode.kind === "edit"
+            ? "Save changes"
+            : status === "taken"
+              ? "Save and book it"
+              : status === "declined"
+                ? "Save as declined"
+                : "Save gig"}
       </button>
     </form>
   );
