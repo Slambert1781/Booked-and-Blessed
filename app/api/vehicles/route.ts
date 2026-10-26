@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getCombinedMpg, getMakes, getModels, getOptions, getYears } from "@/lib/fueleconomy";
+import { getCombinedMpg, getMakes, getModelMpg, getModels, getOptions, getYears } from "@/lib/fueleconomy";
 
 // GET /api/vehicles?level=year|make|model|options&year=&make=&model=
 // GET /api/vehicles?id=12345  -> { mpg }
+// GET /api/vehicles?level=mpg&year=&make=&model= -> { mpg, versions, low, high } (average of all trims)
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
   const year = p.get("year") ?? "";
@@ -19,6 +20,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ items: await getMakes(year) });
       case "model":
         return NextResponse.json({ items: await getModels(year, make) });
+      case "mpg":
+        return NextResponse.json(await getModelMpg(year, make, model));
       case "options":
         return NextResponse.json({ items: await getOptions(year, make, model) });
       default:

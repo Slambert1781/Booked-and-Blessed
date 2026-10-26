@@ -6,7 +6,7 @@ import { AvatarUpload } from "@/components/AvatarUpload";
 import { RushPeriodsEditor } from "@/components/RushPeriodsEditor";
 import { relationshipSettingsFrom } from "@/lib/clients";
 import { TIER_EXAMPLE, TIER_LABEL, TIERS, type RushPeriod } from "@/lib/relationships";
-import { VehiclePicker, type Vehicle } from "@/components/VehiclePicker";
+import { VehiclePicker, type ModelMpg, type Vehicle } from "@/components/VehiclePicker";
 import { US_STATES } from "@/lib/states";
 import { DEFAULT_LOCAL_MEAL_RATE, DEFAULT_OVERNIGHT_MEAL_RATE, num, type ProfileRow } from "@/lib/types";
 import { saveProfile } from "./actions";
@@ -43,6 +43,8 @@ export function ProfileForm({
   const [lookedUpMpg, setLookedUpMpg] = useState<number | null>(
     profile && !profile.mpg_is_manual ? num(profile.mpg) : null,
   );
+  // Versions and range for a model picked in this visit (not stored).
+  const [mpgInfo, setMpgInfo] = useState<ModelMpg | null>(null);
   const [manual, setManual] = useState(profile?.mpg_is_manual ?? false);
   const [manualMpg, setManualMpg] = useState(profile?.mpg_is_manual ? str(profile.mpg) : "");
   const [carError, setCarError] = useState<string | null>(null);
@@ -147,14 +149,27 @@ export function ProfileForm({
               value={vehicle}
               onChange={(v) => {
                 setVehicle(v);
-                if (!v.id) setLookedUpMpg(null);
+                if (!v.model) {
+                  setLookedUpMpg(null);
+                  setMpgInfo(null);
+                }
               }}
-              onMpg={setLookedUpMpg}
+              onMpg={(info) => {
+                setMpgInfo(info);
+                setLookedUpMpg(info?.mpg ?? null);
+              }}
               onError={setCarError}
             />
             {lookedUpMpg !== null && (
               <p className="rounded-lg bg-indigo-50 px-3 py-2 text-indigo-900">
-                <strong>{lookedUpMpg} MPG</strong> combined (fueleconomy.gov)
+                <strong>{mpgInfo && mpgInfo.versions > 1 ? "About " : ""}{lookedUpMpg} MPG</strong> combined
+                {mpgInfo && mpgInfo.versions > 1 && (
+                  <span className="block text-sm text-indigo-800">
+                    Average of {mpgInfo.versions} versions of this model ({mpgInfo.low}–{mpgInfo.high} MPG). If yours
+                    differs, type it in below.
+                  </span>
+                )}
+                <span className="block text-xs text-indigo-700">Source: fueleconomy.gov</span>
               </p>
             )}
             {carError && <p className="text-sm text-amber-800">{carError}</p>}

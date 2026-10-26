@@ -52,3 +52,23 @@ export async function getCombinedMpg(id: string): Promise<number | null> {
   const mpg = Number(data?.comb08);
   return Number.isFinite(mpg) && mpg > 0 ? mpg : null;
 }
+
+export type ModelMpg = { mpg: number; versions: number; low: number; high: number };
+
+/**
+ * Combined MPG for a year/make/model without choosing a trim: the average
+ * across all its versions (engines, drivetrains), with the range.
+ */
+export async function getModelMpg(year: string, make: string, model: string): Promise<ModelMpg | null> {
+  const options = await getOptions(year, make, model);
+  const mpgs = (await Promise.all(options.map((o) => getCombinedMpg(o.value).catch(() => null)))).filter(
+    (m): m is number => m !== null,
+  );
+  if (mpgs.length === 0) return null;
+  return {
+    mpg: Math.round(mpgs.reduce((a, b) => a + b, 0) / mpgs.length),
+    versions: mpgs.length,
+    low: Math.min(...mpgs),
+    high: Math.max(...mpgs),
+  };
+}

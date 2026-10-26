@@ -8,9 +8,12 @@ export type Vehicle = {
   year: string;
   make: string;
   model: string;
-  option: string; // trim label
-  id: string; // fueleconomy.gov vehicle id
+  option: string; // trim label (no longer chosen; kept blank)
+  id: string; // fueleconomy.gov vehicle id (no longer chosen; kept blank)
 };
+
+/** Average combined MPG across all versions of the chosen model. */
+export type ModelMpg = { mpg: number; versions: number; low: number; high: number };
 
 async function menu(params: Record<string, string>): Promise<MenuItem[]> {
   const res = await fetch(`/api/vehicles?${new URLSearchParams(params)}`);
@@ -18,8 +21,8 @@ async function menu(params: Record<string, string>): Promise<MenuItem[]> {
   return ((await res.json()) as { items: MenuItem[] }).items;
 }
 
-// Year -> make -> model -> trim drop-downs. Calls onMpg with the combined MPG
-// when a trim is chosen.
+// Year -> make -> model drop-downs. Once a model is chosen, calls onMpg with
+// the average combined MPG across its versions (no need to know the trim).
 export function VehiclePicker({
   value,
   onChange,
@@ -28,13 +31,12 @@ export function VehiclePicker({
 }: {
   value: Vehicle;
   onChange: (v: Vehicle) => void;
-  onMpg: (mpg: number | null) => void;
+  onMpg: (mpg: ModelMpg | null) => void;
   onError: (message: string | null) => void;
 }) {
   const [years, setYears] = useState<MenuItem[]>([]);
   const [makes, setMakes] = useState<MenuItem[]>([]);
   const [models, setModels] = useState<MenuItem[]>([]);
-  const [options, setOptions] = useState<MenuItem[]>([]);
 
   const fail = () => onError("Couldn't load car details from fueleconomy.gov. You can type your MPG instead.");
 
@@ -53,25 +55,17 @@ export function VehiclePicker({
       menu({ level: "model", year: value.year, make: value.make }).then(setModels, fail);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value.year, value.make]);
-  useEffect(() => {
-    setOptions([]);
-    if (value.year && value.make && value.model)
-      menu({ level: "options", year: value.year, make: value.make, model: value.model }).then(
-        setOptions,
-        fail,
-      );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value.year, value.make, value.model]);
-
-  async function chooseOption(id: string) {
-    const label = options.find((o) => o.value === id)?.text ?? "";
-    onChange({ ...value, id, option: label });
-    if (!id) return;
+  async function chooseModel(model: string) {
+    onChange({ ...value, model, option: "", id: "" });
+    onMpg(null);
+    if (!model) return;
     try {
-      const res = await fetch(`/api/vehicles?id=${encodeURIComponent(id)}`);
+      const q = new URLSearchParams({ level: "mpg", year: value.year, make: value.make, model });
+      const res = await fetch(`/api/vehicles?${q}`);
       if (!res.ok) throw new Error();
-      onMpg(((await res.json()) as { mpg: number | null }).mpg);
-      onError(null);
+      const info = (await res.json()) as ModelMpg | null;
+      onMpg(info);
+      onError(info ? null : "fueleconomy.gov has no MPG for that model. Type your MPG in instead.");
     } catch {
       fail();
     }
@@ -102,16 +96,7 @@ export function VehiclePicker({
           value={value.model}
           items={withCurrent(models, value.model)}
           disabled={!value.make}
-          onChange={(model) => onChange({ ...value, model, option: "", id: "" })}
-        />
-      </div>
-      <div className="col-span-2">
-        <Select
-          label="Trim / engine"
-          value={value.id}
-          items={withCurrent(options, value.id, value.option)}
-          disabled={!value.model}
-          onChange={chooseOption}
+          onChange={chooseModel}
         />
       </div>
     </div>

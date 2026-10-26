@@ -29,8 +29,9 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
 
 - Name and optional photo
 - Home address (with state, for gas prices)
-- Car: year / make / model / trim from fueleconomy.gov (combined MPG), or a
-  typed-in MPG
+- Car: year / make / model from fueleconomy.gov (no trim). The MPG is the
+  average combined MPG across all versions of that model, shown with the
+  range; or a typed-in MPG
 - Playing rate per hour; optional driving rate (blank = playing rate)
 - Optional minimum real hourly rate, tax set-aside %, typical service length
   (hours, default 2.5)
