@@ -79,3 +79,16 @@ describe("gigToFormValues", () => {
     expect(v.gasPrice).toBe("3.874");
   });
 });
+
+describe("past gig helpers", () => {
+  it("isPlayed: booked and all dates passed", async () => {
+    const { isPlayed, canCompare, actualsOf } = await import("./gigs");
+    const svc = [{ id: "a", service_date: "2026-10-01", start_time: null }];
+    expect(isPlayed(gig, svc, "2026-10-26")).toBe(true);
+    expect(isPlayed({ ...gig, status: "undecided" }, svc, "2026-10-26")).toBe(false);
+    expect(isPlayed(gig, [...svc, { id: "b", service_date: "2026-11-01", start_time: null }], "2026-10-26")).toBe(false);
+    expect(actualsOf(gig)).toBeNull();
+    expect(canCompare({ ...gig, actual_gas_cost: "41.00" })).toBe(true);
+    expect(canCompare({ ...gig, actual_gas_cost: "41.00", logged_after: true })).toBe(false);
+  });
+});

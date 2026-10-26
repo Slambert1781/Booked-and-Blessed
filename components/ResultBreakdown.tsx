@@ -9,8 +9,11 @@ export function ResultBreakdown({
   verdict,
   taxRatePct,
   pensionPct,
+  estimate,
 }: {
   result: GigResult;
+  /** The estimate before actual figures were entered; shows a comparison when given. */
+  estimate?: GigResult | null;
   verdict?: VerdictResult | null;
   taxRatePct?: number | null;
   pensionPct?: number | null;
@@ -32,7 +35,7 @@ export function ResultBreakdown({
       <HourlyRate result={r} verdict={verdict ?? null} />
 
       <dl className="divide-y divide-stone-200 rounded-2xl bg-white px-4 shadow-sm">
-        <Row label="Total pay" value={formatMoney(r.totalPay)} />
+        <Row label="Total pay" value={formatMoney(r.totalPay)} actual={r.actual.pay} />
         {r.mileageReimbursement > 0 && (
           <Row label="Mileage reimbursement" value={`+ ${formatMoney(r.mileageReimbursement)}`} positive />
         )}
@@ -46,20 +49,26 @@ export function ResultBreakdown({
             positive
           />
         )}
-        <Row label="Gas" value={`− ${formatMoney(r.gasCost)}`} negative />
-        {r.lodgingCost > 0 && (
+        <Row label="Gas" value={`− ${formatMoney(r.gasCost)}`} negative actual={r.actual.gas} />
+        {(r.lodgingCost > 0 || r.actual.lodging) && (
           <Row
             label={`Lodging (${r.nights} ${r.nights === 1 ? "night" : "nights"})`}
             value={`− ${formatMoney(r.lodgingCost)}`}
             negative
+            actual={r.actual.lodging}
           />
         )}
-        {r.foodCost > 0 && (
+        {(r.foodCost > 0 || r.actual.food) && (
           <Row
             label="Food"
-            detail={`${r.foodDays} ${r.foodDays === 1 ? "day" : "days"} × ${formatMoney(r.foodRate)} (${describeMeals(r.meals)})`}
+            detail={
+              r.actual.food
+                ? undefined
+                : `${r.foodDays} ${r.foodDays === 1 ? "day" : "days"} × ${formatMoney(r.foodRate)} (${describeMeals(r.meals)})`
+            }
             value={`− ${formatMoney(r.foodCost)}`}
             negative
+            actual={r.actual.food}
           />
         )}
         {r.driveTimeCounted ? (
@@ -99,6 +108,8 @@ export function ResultBreakdown({
         </dl>
       )}
 
+      {estimate && <CompareWithEstimate actual={r} estimate={estimate} />}
+
       <dl className="grid grid-cols-3 gap-2 text-center">
         <Stat label="Round trips" value={String(r.roundTrips)} />
         <Stat label="Total miles" value={formatMiles(r.totalMiles)} />
@@ -114,17 +125,25 @@ function Row({
   value,
   positive,
   negative,
+  actual,
 }: {
   label: string;
   detail?: string;
   value: string;
   positive?: boolean;
   negative?: boolean;
+  /** An actual figure entered after the gig, rather than an estimate. */
+  actual?: boolean;
 }) {
   return (
     <div className="flex items-baseline justify-between gap-4 py-3">
       <dt>
         {label}
+        {actual && (
+          <span className="ml-2 rounded-full bg-indigo-100 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-indigo-800">
+            actual
+          </span>
+        )}
         {detail && <span className="block text-xs text-stone-500">{detail}</span>}
       </dt>
       <dd
@@ -186,5 +205,59 @@ function HourlyRate({ result: r, verdict }: { result: GigResult; verdict: Verdic
         </p>
       )}
     </div>
+  );
+}
+
+// Estimated vs actual, behind a tap.
+function CompareWithEstimate({ actual: a, estimate: e }: { actual: GigResult; estimate: GigResult }) {
+  const rows: [string, number, number][] = [
+    ["Pay", e.totalPay, a.totalPay],
+    ["Gas", e.gasCost, a.gasCost],
+    ["Food", e.foodCost, a.foodCost],
+    ["Lodging", e.lodgingCost, a.lodgingCost],
+    ["Take-home", e.realTakeHome, a.realTakeHome],
+  ];
+  const diff = a.realTakeHome - e.realTakeHome;
+  // The line that moved take-home the most (costs count against you).
+  const swings: [string, number][] = [
+    ["the pay", a.totalPay - e.totalPay],
+    ["gas", e.gasCost - a.gasCost],
+    ["food", e.foodCost - a.foodCost],
+    ["lodging", e.lodgingCost - a.lodgingCost],
+  ];
+  const [why] = [...swings].sort((x, y) => Math.abs(y[1]) - Math.abs(x[1]));
+  const summary =
+    Math.abs(diff) < 0.5
+      ? "You took home what you expected."
+      : `You took home ${formatMoney(Math.abs(diff))} ${diff > 0 ? "more" : "less"} than expected${
+          Math.abs(why[1]) >= 0.5 ? `, mostly because of ${why[0]}` : ""
+        }.`;
+
+  return (
+    <details className="group rounded-2xl bg-white px-4 py-3 shadow-sm">
+      <summary className="cursor-pointer list-none text-sm font-medium text-indigo-700">
+        <span className="group-open:hidden">Compare with your estimate</span>
+        <span className="hidden group-open:inline">Hide the comparison</span>
+      </summary>
+      <p className="mt-3 text-sm text-stone-700">{summary}</p>
+      <table className="mt-2 w-full text-sm tabular-nums">
+        <thead>
+          <tr className="text-left text-xs text-stone-500">
+            <th className="py-1 font-medium"></th>
+            <th className="py-1 text-right font-medium">Estimated</th>
+            <th className="py-1 text-right font-medium">Actual</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-stone-100">
+          {rows.map(([label, est, act]) => (
+            <tr key={label} className={label === "Take-home" ? "font-semibold" : ""}>
+              <td className="py-1.5">{label}</td>
+              <td className="py-1.5 text-right text-stone-500">{formatMoney(est)}</td>
+              <td className="py-1.5 text-right">{formatMoney(act)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </details>
   );
 }

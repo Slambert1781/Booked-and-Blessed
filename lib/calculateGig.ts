@@ -46,11 +46,22 @@ export type CalcGig = {
    */
   countDriveTime?: boolean;
 
+  /** Real figures after the gig; any left blank use the estimate. */
+  actuals?: Actuals | null;
+
   /** Length of each service in hours (same order as serviceDates). */
   serviceHours?: (number | null)[];
   isUnion?: boolean;
   /** % of pay the employer contributes to the union pension. */
   pensionPct?: number | null;
+};
+
+/** What a gig really paid and cost, entered after it happened. Blank = use the estimate. */
+export type Actuals = {
+  pay?: number | null;
+  gas?: number | null;
+  food?: number | null;
+  lodging?: number | null;
 };
 
 export type CalcLookups = {
@@ -99,6 +110,8 @@ export type GigResult = {
   taxSetAside: number;
   /** Paid into the union pension on your behalf; not part of take-home. */
   pensionContribution: number;
+  /** Which lines use actual figures rather than estimates. */
+  actual: { pay: boolean; gas: boolean; food: boolean; lodging: boolean };
 };
 
 const n = (v: number | null | undefined) => v ?? 0;
@@ -112,15 +125,25 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
       : Math.max(serviceDays - 1, 1)
     : 0;
 
-  const totalPay =
-    gig.gigType === "orchestra" ? n(gig.feePerService) * n(gig.numberOfServices) : n(gig.flatFee);
+  const a = gig.actuals ?? {};
+  const isSet = (v: number | null | undefined): v is number => v !== null && v !== undefined && Number.isFinite(v);
+
+  const totalPay = isSet(a.pay)
+    ? a.pay
+    : gig.gigType === "orchestra"
+      ? n(gig.feePerService) * n(gig.numberOfServices)
+      : n(gig.flatFee);
 
   const roundTripMiles = lookups.oneWayMiles * 2;
   const roundTripHours = (lookups.oneWayMinutes * 2) / 60;
   const totalMiles = roundTripMiles * roundTrips;
   const totalDriveHours = roundTripHours * roundTrips;
 
-  const gasCost = profile.mpg > 0 ? (totalMiles / profile.mpg) * lookups.gasPricePerGallon : 0;
+  const gasCost = isSet(a.gas)
+    ? a.gas
+    : profile.mpg > 0
+      ? (totalMiles / profile.mpg) * lookups.gasPricePerGallon
+      : 0;
   const driveTimeRate = profile.drivingRate ?? profile.playingRate;
   const countDrive = gig.countDriveTime !== false;
   const driveTimeCost = countDrive ? totalDriveHours * driveTimeRate : 0;
@@ -130,7 +153,11 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
     : gig.reimbType === "per_mile"
       ? n(gig.reimbRatePerMile) * totalMiles
       : n(gig.flatReimbAmount);
-  const lodgingCost = gig.stayingOvernight && !gig.hosted ? n(gig.roomCostPerNight) * nights : 0;
+  const lodgingCost = isSet(a.lodging)
+    ? a.lodging
+    : gig.stayingOvernight && !gig.hosted
+      ? n(gig.roomCostPerNight) * nights
+      : 0;
   const lodgingStipend = gig.stayingOvernight ? n(gig.stipendPerNight) * nights : 0;
 
   // Days away: each service day locally, or every day from arrival to departure overnight.
@@ -138,7 +165,7 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
   const meals = gig.meals ?? defaultMeals(gig.stayingOvernight);
   const foodDays = gig.eatingOut === false ? 0 : daysAway;
   const foodRate = profile.mealRates ? dailyMealCost(profile.mealRates, meals) : 0;
-  const foodCost = foodDays * foodRate;
+  const foodCost = isSet(a.food) ? a.food : foodDays * foodRate;
   const foodStipend = !gig.foodStipend
     ? 0
     : gig.foodStipend.type === "per_day"
@@ -187,5 +214,6 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
     meetsMinimum,
     taxSetAside,
     pensionContribution,
+    actual: { pay: isSet(a.pay), gas: isSet(a.gas), food: isSet(a.food), lodging: isSet(a.lodging) },
   };
 }

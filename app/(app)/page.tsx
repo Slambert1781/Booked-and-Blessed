@@ -6,8 +6,10 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Tour } from "@/components/Tour";
 import { relationshipSettingsFrom, verdictFor } from "@/lib/clients";
 import { listClients } from "@/lib/clientsServer";
+import { todayISO } from "@/lib/today";
 import {
   GIG_STATUSES,
+  isPlayed,
   resultForSavedGig,
   settingsFrom,
   STATUS_LABEL,
@@ -44,6 +46,7 @@ export default async function Home({
     .returns<GigWithServices[]>();
 
   const settings = settingsFrom(result.profile);
+  const today = todayISO();
   const rel = relationshipSettingsFrom(result.profile);
   const clientsById = new Map((await listClients()).map((c) => [c.id, c]));
   const all = gigs ?? [];
@@ -123,7 +126,7 @@ export default async function Home({
                         {formatDateRange(gig.gig_services.map((s) => s.service_date))}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <StatusBadge status={statusOf(gig)} />
+                        <StatusBadge status={statusOf(gig)} played={isPlayed(gig, gig.gig_services, today)} />
                         {(r.realHourlyRate !== null || v) && (
                           <span className="inline-flex items-center gap-1 text-xs font-medium tabular-nums text-stone-600">
                             {v && (

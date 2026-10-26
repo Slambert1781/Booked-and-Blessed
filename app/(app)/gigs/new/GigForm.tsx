@@ -5,14 +5,14 @@ import { AddressInput, type AddressValue } from "@/components/AddressInput";
 import { ClientPicker } from "@/components/ClientPicker";
 import { DecisionPicker } from "@/components/DecisionPicker";
 import { ResultBreakdown } from "@/components/ResultBreakdown";
-import { calculateGig, type CalcProfile } from "@/lib/calculateGig";
+import { calculateGig, type CalcGig, type CalcProfile } from "@/lib/calculateGig";
 import { verdictFor, type ClientSummary, type RelationshipSettings } from "@/lib/clients";
 import type { GasPrice } from "@/lib/eia/gasPrice";
 import { formatDate, formatMoney } from "@/lib/format";
 import type { GigStatus, ServiceKind } from "@/lib/gigs";
 import type { FormService, GasSource, GigFormValues } from "@/lib/gigForm";
 import { dailyMealCost, defaultMeals, MEAL_LABEL, MEALS, type MealChoice } from "@/lib/meals";
-import { createGig, lookupDrive, updateGig } from "./actions";
+import { createGig, gasPriceForDate, lookupDrive, updateGig } from "./actions";
 
 type Service = FormService;
 
@@ -121,6 +121,13 @@ export function GigForm({
   const [foodStipendAmount, setFoodStipendAmount] = useState(initial?.foodStipendAmount ?? "");
   const [countDriveTime, setCountDriveTime] = useState(initial?.countDriveTime ?? true);
 
+  // After the gig: what it really paid and cost. Blank = use the estimate.
+  const [alreadyPlayed, setAlreadyPlayed] = useState(initial?.alreadyPlayed ?? false);
+  const [actualPay, setActualPay] = useState(initial?.actualPay ?? "");
+  const [actualGas, setActualGas] = useState(initial?.actualGas ?? "");
+  const [actualFood, setActualFood] = useState(initial?.actualFood ?? "");
+  const [actualLodging, setActualLodging] = useState(initial?.actualLodging ?? "");
+
   const [miles, setMiles] = useState(initial?.miles ?? "");
   const [minutes, setMinutes] = useState(initial?.minutes ?? "");
   const [distanceIsManual, setDistanceIsManual] = useState(initial?.distanceIsManual ?? false);
@@ -195,49 +202,79 @@ export function GigForm({
   const serviceDays = new Set(dated.map((s) => s.date)).size;
   const autoNights = Math.max(serviceDays - 1, 1);
 
-  const preview = useMemo(() => {
+  const both = useMemo(() => {
     const m = parse(miles);
     const min = parse(minutes);
     const g = parse(gasPrice);
     const dates = dated.map((s) => s.date);
     const pay = gigType === "orchestra" ? parse(feePerService) : parse(flatFee);
     if (m === null || min === null || g === null || pay === null || dates.length === 0) return null;
-    return calculateGig(
-      profile,
-      {
-        gigType,
-        feePerService: parse(feePerService),
-        numberOfServices: dates.length,
-        flatFee: parse(flatFee),
-        serviceDates: dates,
-        paysMileage,
-        reimbType,
-        reimbRatePerMile: parse(reimbRatePerMile),
-        flatReimbAmount: parse(flatReimbAmount),
-        stayingOvernight,
-        hosted,
-        roomCostPerNight: parse(roomCostPerNight),
-        stipendPerNight: parse(stipendPerNight),
-        lodgingNights: parse(lodgingNights),
-        eatingOut,
-        meals,
-        foodStipend:
-          paysFoodStipend && parse(foodStipendAmount) !== null
-            ? { type: foodStipendType, amount: parse(foodStipendAmount)! }
-            : null,
-        countDriveTime,
-        serviceHours: dated.map((s) => parse(s.hours)),
-        isUnion,
-        pensionPct: parse(pensionPct),
-      },
-      { oneWayMiles: m, oneWayMinutes: min, gasPricePerGallon: g },
-    );
+    const calcGig: CalcGig = {
+      gigType,
+      feePerService: parse(feePerService),
+      numberOfServices: dates.length,
+      flatFee: parse(flatFee),
+      serviceDates: dates,
+      paysMileage,
+      reimbType,
+      reimbRatePerMile: parse(reimbRatePerMile),
+      flatReimbAmount: parse(flatReimbAmount),
+      stayingOvernight,
+      hosted,
+      roomCostPerNight: parse(roomCostPerNight),
+      stipendPerNight: parse(stipendPerNight),
+      lodgingNights: parse(lodgingNights),
+      eatingOut,
+      meals,
+      foodStipend:
+        paysFoodStipend && parse(foodStipendAmount) !== null
+          ? { type: foodStipendType, amount: parse(foodStipendAmount)! }
+          : null,
+      countDriveTime,
+      serviceHours: dated.map((s) => parse(s.hours)),
+      isUnion,
+      pensionPct: parse(pensionPct),
+    };
+    const lookups = { oneWayMiles: m, oneWayMinutes: min, gasPricePerGallon: g };
+    const actuals = {
+      pay: parse(actualPay),
+      gas: parse(actualGas),
+      food: parse(actualFood),
+      lodging: parse(actualLodging),
+    };
+    return {
+      estimate: calculateGig(profile, calcGig, lookups),
+      result: calculateGig(profile, { ...calcGig, actuals }, lookups),
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     profile, gigType, feePerService, flatFee, services, paysMileage, reimbType, reimbRatePerMile,
     flatReimbAmount, stayingOvernight, hosted, roomCostPerNight, stipendPerNight, lodgingNights, eatingOut, meals, paysFoodStipend, foodStipendType, foodStipendAmount, countDriveTime, miles,
-    minutes, gasPrice, isUnion, pensionPct,
+    minutes, gasPrice, isUnion, pensionPct, actualPay, actualGas, actualFood, actualLodging,
   ]);
+  const preview = both?.result ?? null;
+  const estimate = both?.estimate ?? null;
+  const hasActuals = [actualPay, actualGas, actualFood, actualLodging].some((v) => parse(v) !== null);
+
+  // Show "What it actually paid and cost" for a gig entered after the fact,
+  // or once every date of a saved gig has passed.
+  const allDatesPast = dated.length > 0 && dated.every((s) => s.date < today());
+  const showActuals = alreadyPlayed || (mode.kind === "edit" && allDatesPast);
+
+  // For a gig entered after the fact, use the gas price from the week it happened.
+  const firstDate = dated.map((s) => s.date).sort()[0] ?? "";
+  const gasLookedUpFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!alreadyPlayed || !firstDate || firstDate >= today() || gasLookedUpFor.current === firstDate) return;
+    if (gasSource === null && gasPrice) return; // typed in by hand: leave it
+    gasLookedUpFor.current = firstDate;
+    gasPriceForDate(firstDate).then((r) => {
+      if ("error" in r) return;
+      setGasPrice(String(r.price));
+      setGasSource({ areaName: r.areaName, periodDate: r.periodDate, kind: r.kind });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alreadyPlayed, firstDate]);
 
   const verdict = useMemo(
     () => preview && verdictFor(preview, dated.map((s) => s.date), client, relationship),
@@ -303,6 +340,11 @@ export function GigForm({
         foodStipendType,
         foodStipendAmount,
         countDriveTime,
+        alreadyPlayed,
+        actualPay,
+        actualGas,
+        actualFood,
+        actualLodging,
         isUnion,
         pensionPct,
         oneWayMiles: miles,
@@ -329,6 +371,17 @@ export function GigForm({
 
   return (
     <form onSubmit={submit} className="mt-6 space-y-8" noValidate>
+      {mode.kind !== "edit" && (
+        <div>
+          <Toggle label="Already played" checked={alreadyPlayed} onChange={setAlreadyPlayed} />
+          <p className="mt-1 px-1 text-xs text-stone-500">
+            {alreadyPlayed
+              ? "Logging a gig that's already happened: it's saved as booked, and you can enter what it actually paid and cost below."
+              : "Turn on to log a gig you've already played."}
+          </p>
+        </div>
+      )}
+
       <section className="space-y-3">
         <TextField
           label={mode.kind === "copy" ? "Name for this copy" : "Gig name (optional)"}
@@ -618,10 +671,14 @@ export function GigForm({
           </div>
         )}
 
-        <Toggle label="Count my drive time" checked={countDriveTime} onChange={setCountDriveTime} />
+        <Toggle
+          label="Don't charge my drive time"
+          checked={!countDriveTime}
+          onChange={(on) => setCountDriveTime(!on)}
+        />
         <p className="-mt-1 px-1 text-xs text-stone-500">
           {countDriveTime
-            ? `Your time behind the wheel is charged at ${formatMoney(profile.drivingRate ?? profile.playingRate)}/hr and counted in your hourly rate.`
+            ? `Your time behind the wheel is charged at ${formatMoney(profile.drivingRate ?? profile.playingRate)}/hr and counted in your hourly rate. Turn on to leave it out for this gig.`
             : "Drive time isn't charged, and your hourly rate uses playing time only. Gas still counts."}
         </p>
 
@@ -732,6 +789,41 @@ export function GigForm({
         )}
       </section>
 
+      {showActuals && (
+        <section id="actuals" className="scroll-mt-4 space-y-3">
+          <h2 className="text-lg font-semibold">What it actually paid and cost</h2>
+          <p className="text-sm text-stone-600">
+            Fill in what you know. Anything left blank uses the estimate shown in grey.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <MoneyField
+              label="Pay received"
+              value={actualPay}
+              onChange={setActualPay}
+              placeholder={estimate ? estimate.totalPay.toFixed(2) : undefined}
+            />
+            <MoneyField
+              label="Gas"
+              value={actualGas}
+              onChange={setActualGas}
+              placeholder={estimate ? estimate.gasCost.toFixed(2) : undefined}
+            />
+            <MoneyField
+              label="Food"
+              value={actualFood}
+              onChange={setActualFood}
+              placeholder={estimate ? estimate.foodCost.toFixed(2) : undefined}
+            />
+            <MoneyField
+              label="Lodging"
+              value={actualLodging}
+              onChange={setActualLodging}
+              placeholder={estimate ? estimate.lodgingCost.toFixed(2) : undefined}
+            />
+          </div>
+        </section>
+      )}
+
       {preview && (
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">The real pay</h2>
@@ -740,20 +832,23 @@ export function GigForm({
             verdict={verdict}
             taxRatePct={profile.taxRatePct}
             pensionPct={isUnion ? parse(pensionPct) : null}
+            estimate={hasActuals && !alreadyPlayed ? estimate : null}
           />
         </section>
       )}
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Your decision</h2>
-        {mode.kind !== "edit" && (
-          <p className="text-sm text-stone-600">Optional. You can decide later from the gig&apos;s page.</p>
-        )}
-        <DecisionPicker value={status} onChange={setStatus} allowNone />
-        {status === "taken" && initial?.status !== "taken" && (
-          <p className="text-sm text-emerald-800">It&apos;ll go on your calendar when you save.</p>
-        )}
-      </section>
+      {!alreadyPlayed && (
+        <section className="space-y-2">
+          <h2 className="text-lg font-semibold">Your decision</h2>
+          {mode.kind !== "edit" && (
+            <p className="text-sm text-stone-600">Optional. You can decide later from the gig&apos;s page.</p>
+          )}
+          <DecisionPicker value={status} onChange={setStatus} allowNone />
+          {status === "taken" && initial?.status !== "taken" && (
+            <p className="text-sm text-emerald-800">It&apos;ll go on your calendar when you save.</p>
+          )}
+        </section>
+      )}
 
       {missing.length > 0 && (
         <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">

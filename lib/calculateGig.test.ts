@@ -332,3 +332,48 @@ describe("calculateGig: count drive time", () => {
     expect(r.realHourlyRate).toBeCloseTo(388 / 2);
   });
 });
+
+describe("calculateGig: actual figures after the gig", () => {
+  const eater: CalcProfile = { ...profile, mealRates: FEDERAL_MEAL_RATES, taxRatePct: 25 };
+
+  it("actual pay, gas, food and lodging replace the estimates", () => {
+    const est = calculateGig(eater, { ...wedding, stayingOvernight: true, roomCostPerNight: 100 }, lookups);
+    const r = calculateGig(
+      eater,
+      {
+        ...wedding,
+        stayingOvernight: true,
+        roomCostPerNight: 100,
+        actuals: { pay: 450, gas: 41, food: 30, lodging: 120 },
+      },
+      lookups,
+    );
+    expect(est.totalPay).toBe(400);
+    expect(r.totalPay).toBe(450);
+    expect(r.gasCost).toBe(41);
+    expect(r.foodCost).toBe(30);
+    expect(r.lodgingCost).toBe(120);
+    expect(r.taxSetAside).toBeCloseTo(112.5); // tax follows the actual pay
+    expect(r.actual).toEqual({ pay: true, gas: true, food: true, lodging: true });
+    expect(r.realTakeHome).toBeCloseTo(450 - 41 - 30 - 120 - 100 - 112.5);
+  });
+
+  it("blank actuals keep the estimate", () => {
+    const r = calculateGig(eater, { ...wedding, actuals: { gas: 20, pay: null } }, lookups);
+    expect(r.totalPay).toBe(400);
+    expect(r.gasCost).toBe(20);
+    expect(r.foodCost).toBe(28);
+    expect(r.actual).toEqual({ pay: false, gas: true, food: false, lodging: false });
+  });
+
+  it("an actual of zero counts (e.g. you ate nothing)", () => {
+    const r = calculateGig(eater, { ...wedding, actuals: { food: 0 } }, lookups);
+    expect(r.foodCost).toBe(0);
+    expect(r.actual.food).toBe(true);
+  });
+
+  it("actual figures feed the hourly rate", () => {
+    const r = calculateGig(eater, { ...wedding, serviceHours: [2], actuals: { pay: 500, gas: 12 } }, lookups);
+    expect(r.netCash).toBeCloseTo(500 - 12 - 28);
+  });
+});

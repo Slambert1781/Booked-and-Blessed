@@ -1,4 +1,4 @@
-import { calculateGig, type CalcGig, type GigResult } from "@/lib/calculateGig";
+import { calculateGig, type Actuals, type CalcGig, type GigResult } from "@/lib/calculateGig";
 import { parseMealChoice, parseMealRates } from "@/lib/meals";
 import type { ProfileRow } from "@/lib/types";
 import { num } from "@/lib/types";
@@ -53,6 +53,11 @@ export type GigRow = {
   lodging_nights?: number | null;
   eating_out?: boolean | null;
   count_drive_time?: boolean | null;
+  actual_pay?: Numeric;
+  actual_gas_cost?: Numeric;
+  actual_food_cost?: Numeric;
+  actual_lodging_cost?: Numeric;
+  logged_after?: boolean | null;
   meals?: unknown;
   meal_rates_used?: unknown;
   food_stipend_type?: "per_day" | "flat" | null;
@@ -80,7 +85,13 @@ export const settingsFrom = (p: ProfileRow | null | undefined): GigSettings => (
 });
 
 /** Recalculate a saved gig from its stored (frozen) values. */
-export function resultForSavedGig(gig: GigRow, services: ServiceRow[], settings?: GigSettings): GigResult {
+export function resultForSavedGig(
+  gig: GigRow,
+  services: ServiceRow[],
+  settings?: GigSettings,
+  /** false = the estimate, ignoring any actual figures entered afterwards. */
+  withActuals = true,
+): GigResult {
   const calcGig: CalcGig = {
     gigType: gig.gig_type,
     feePerService: num(gig.fee_per_service),
@@ -103,6 +114,7 @@ export function resultForSavedGig(gig: GigRow, services: ServiceRow[], settings?
         ? { type: gig.food_stipend_type, amount: num(gig.food_stipend_amount ?? null)! }
         : null,
     countDriveTime: gig.count_drive_time ?? true,
+    actuals: withActuals ? actualsOf(gig) : null,
     serviceHours: services.map((s) => num(s.duration_hours ?? null)),
     isUnion: gig.is_union ?? false,
     pensionPct: num(gig.pension_pct ?? null),
@@ -125,3 +137,23 @@ export function resultForSavedGig(gig: GigRow, services: ServiceRow[], settings?
     },
   );
 }
+
+/** The actual figures entered after a gig, or null if none. */
+export function actualsOf(gig: GigRow): Actuals | null {
+  const a = {
+    pay: num(gig.actual_pay ?? null),
+    gas: num(gig.actual_gas_cost ?? null),
+    food: num(gig.actual_food_cost ?? null),
+    lodging: num(gig.actual_lodging_cost ?? null),
+  };
+  return Object.values(a).some((v) => v !== null) ? a : null;
+}
+
+/** Booked and every service date has passed. */
+export function isPlayed(gig: GigRow, services: ServiceRow[], today: string): boolean {
+  if (statusOf(gig) !== "taken" || services.length === 0) return false;
+  return services.every((s) => s.service_date < today);
+}
+
+/** Show the estimate-vs-actual comparison: actuals were entered for a gig estimated beforehand. */
+export const canCompare = (gig: GigRow) => !gig.logged_after && actualsOf(gig) !== null;

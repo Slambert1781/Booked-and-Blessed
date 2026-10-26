@@ -53,11 +53,26 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
   flat), staying overnight (hosted or room cost per night, lodging stipend
   per night, number of nights), **eating out** (on by default) with **which
   meals** each day (starts as dinner for a local gig, all four when staying
-  overnight), a **food stipend** (per day or a flat amount), and **count my
-  drive time** (on by default)
+  overnight), a **food stipend** (per day or a flat amount), and **don't
+  charge my drive time** (off by default, so drive time counts)
 - Gas price: this week's EIA average for the state (or region, then
   national), or typed in
-- Decision: undecided / booked (`taken`) / declined
+- Decision: undecided / booked (`taken`) / declined. A booked gig whose dates
+  have all passed is labelled **Played** and no longer shows the decision.
+
+## Past gigs: actual figures
+
+- **Already played** (new gigs and copies): log a gig after it happened. It
+  is saved as booked, with `logged_after` set, and its gas price is the EIA
+  average for the week of its first date.
+- **What it actually paid and cost**: pay received, gas, food and lodging.
+  Shown for a gig entered as already played, and in Edit once every date of
+  a saved gig has passed (a played gig without actuals prompts for them).
+  Each box shows the estimate as a placeholder; blank = use the estimate.
+- The result uses the actual figures, marking those lines **actual**. For a
+  gig estimated beforehand (not `logged_after`), a **Compare with your
+  estimate** link shows estimated vs actual pay, gas, food, lodging and
+  take-home, with a one-line summary of the biggest difference.
 
 ## Calculation rules (`lib/calculateGig.ts`)
 
@@ -66,22 +81,22 @@ service_days     = number of distinct dates among the gig's services
 round_trips      = staying_overnight ? 1 : service_days
 nights           = staying_overnight ? (lodging_nights ?? max(service_days - 1, 1)) : 0
 
-total_pay        = per_service ? fee_per_service * number_of_services : flat_fee
+total_pay        = actual_pay ?? (per_service ? fee_per_service * number_of_services : flat_fee)
 total_miles      = one_way_miles * 2 * round_trips
 total_drive_hrs  = one_way_minutes * 2 / 60 * round_trips
 
-gas_cost         = (total_miles / mpg) * gas_price_per_gallon
+gas_cost         = actual_gas ?? (total_miles / mpg) * gas_price_per_gallon
 drive_time_cost  = count_drive_time ? total_drive_hrs * (driving_rate ?? playing_rate) : 0
 
 mileage_reimb    = !pays_mileage ? 0
                  : per_mile ? reimb_rate_per_mile * total_miles
                  : flat_reimb_amount
-lodging_cost     = staying_overnight && !hosted ? room_cost_per_night * nights : 0
+lodging_cost     = actual_lodging ?? (staying_overnight && !hosted ? room_cost_per_night * nights : 0)
 lodging_stipend  = staying_overnight ? stipend_per_night * nights : 0
 
 days_away        = staying_overnight ? nights + 1 : service_days
 daily_meal_cost  = sum of the profile price of each chosen meal
-food_cost        = eating_out ? days_away * daily_meal_cost : 0
+food_cost        = actual_food ?? (eating_out ? days_away * daily_meal_cost : 0)
 food_stipend     = !pays_food_stipend ? 0
                  : per_day ? food_stipend_amount * days_away
                  : food_stipend_amount
@@ -142,7 +157,9 @@ Every user table has `user_id` → `auth.users` and owner-only RLS policies.
   mileage and lodging fields, lodging_nights, eating_out (default true),
   meals (which meals, jsonb), food_stipend_type (per_day | flat),
   food_stipend_amount,
-  count_drive_time (default true),
+  count_drive_time (default true), actual_pay / actual_gas_cost /
+  actual_food_cost / actual_lodging_cost (null = use the estimate),
+  logged_after (default false),
   is_union, pension_pct, status, decided_at, and the stored values: one-way
   miles/minutes, gas price/source/date, mpg_used, playing_rate_used,
   driving_rate_used, meal_rates_used (jsonb).

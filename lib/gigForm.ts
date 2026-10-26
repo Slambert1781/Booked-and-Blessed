@@ -34,6 +34,12 @@ export type GigFormValues = {
   foodStipendType: "per_day" | "flat";
   foodStipendAmount: string;
   countDriveTime: boolean;
+  /** Entered after it was played (no estimate beforehand). */
+  alreadyPlayed: boolean;
+  actualPay: string;
+  actualGas: string;
+  actualFood: string;
+  actualLodging: string;
   isUnion: boolean;
   pensionPct: string;
   miles: string;
@@ -85,6 +91,12 @@ export function gigToFormValues(gig: GigRow, services: ServiceRow[], mode: "edit
     foodStipendType: gig.food_stipend_type ?? "per_day",
     foodStipendAmount: str(gig.food_stipend_amount ?? null),
     countDriveTime: gig.count_drive_time ?? true,
+    // A copy is a new gig: it starts with no actual figures.
+    alreadyPlayed: mode === "edit" ? (gig.logged_after ?? false) : false,
+    actualPay: mode === "edit" ? str(gig.actual_pay ?? null) : "",
+    actualGas: mode === "edit" ? str(gig.actual_gas_cost ?? null) : "",
+    actualFood: mode === "edit" ? str(gig.actual_food_cost ?? null) : "",
+    actualLodging: mode === "edit" ? str(gig.actual_lodging_cost ?? null) : "",
     isUnion: gig.is_union ?? false,
     pensionPct: str(gig.pension_pct),
     miles: str(gig.one_way_miles),

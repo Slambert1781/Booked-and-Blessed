@@ -4,10 +4,8 @@ import { formatDate, formatMoney, formatTime } from "@/lib/format";
 import { resultForSavedGig, settingsFrom, statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
 import { getProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
+import { todayISO } from "@/lib/today";
 
-// "Today" for the default month and highlight. The server runs in UTC, so
-// pick the family's local zone instead.
-const TIME_ZONE = "America/Los_Angeles";
 
 type Entry = { gigId: string; title: string; date: string; time: string | null };
 type Money = { takeHome: number; pay: number; tax: number; services: number };
@@ -18,7 +16,7 @@ type GigWithServices = GigRow & { gig_services: ServiceRow[] };
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: TIME_ZONE }); // YYYY-MM-DD
+  const today = todayISO();
   const thisMonth: Month = { year: Number(today.slice(0, 4)), month: Number(today.slice(5, 7)) };
   const month = parseMonth((await searchParams).month, thisMonth);
   const key = monthKey(month);

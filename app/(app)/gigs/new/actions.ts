@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getGasPriceForDate, type GasPrice } from "@/lib/eia/gasPrice";
 import { oneWayDrive } from "@/lib/google/routes";
 import { getProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
@@ -25,6 +26,17 @@ export async function lookupDrive(
   }
 }
 
+/** This week's average, or the week of a past gig. */
+export async function gasPriceForDate(date: string): Promise<GasPrice | { error: string }> {
+  const me = await getProfile();
+  if (!me) return { error: "Not signed in." };
+  try {
+    return await getGasPriceForDate(me.profile?.home_state ?? null, date);
+  } catch {
+    return { error: "Couldn't get the gas price for that week. Type in what you paid." };
+  }
+}
+
 export type GigInput = {
   title: string;
   clientId: string | null;
@@ -41,6 +53,11 @@ export type GigInput = {
   foodStipendType: "per_day" | "flat";
   foodStipendAmount: string;
   countDriveTime: boolean;
+  alreadyPlayed: boolean;
+  actualPay: string;
+  actualGas: string;
+  actualFood: string;
+  actualLodging: string;
   paysMileage: boolean;
   reimbType: "per_mile" | "flat";
   reimbRatePerMile: string;
@@ -122,7 +139,21 @@ function validate(
     return { error: "Enter the miles and drive time each way." };
   if (gas === null || Number.isNaN(gas) || gas === 0) return { error: "Enter the gas price per gallon." };
 
-  const status: GigStatus = input.status && GIG_STATUSES.includes(input.status) ? input.status : "undecided";
+  const actual = {
+    pay: amount(input.actualPay),
+    gas: amount(input.actualGas),
+    food: amount(input.actualFood),
+    lodging: amount(input.actualLodging),
+  };
+  if (Object.values(actual).some((v) => Number.isNaN(v)))
+    return { error: "Check the actual amounts: they must be dollar amounts, or blank to use the estimate." };
+
+  // A gig entered after it was played was, by definition, booked.
+  const status: GigStatus = input.alreadyPlayed
+    ? "taken"
+    : input.status && GIG_STATUSES.includes(input.status)
+      ? input.status
+      : "undecided";
 
   return {
     status,
@@ -151,6 +182,11 @@ function validate(
       food_stipend_type: input.paysFoodStipend ? input.foodStipendType : null,
       food_stipend_amount: input.paysFoodStipend ? foodStipend : null,
       count_drive_time: input.countDriveTime,
+      actual_pay: actual.pay,
+      actual_gas_cost: actual.gas,
+      actual_food_cost: actual.food,
+      actual_lodging_cost: actual.lodging,
+      logged_after: input.alreadyPlayed,
       is_union: input.isUnion,
       pension_pct: pension,
       one_way_miles: miles,

@@ -6,7 +6,8 @@ import { KIND_LABEL, relationshipSettingsFrom } from "@/lib/clients";
 import { getClient } from "@/lib/clientsServer";
 import { bookedTotalsByYear } from "@/lib/clientStats";
 import { formatDateRange, formatMoney } from "@/lib/format";
-import { resultForSavedGig, settingsFrom, statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
+import { isPlayed, resultForSavedGig, settingsFrom, statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
+import { todayISO } from "@/lib/today";
 import { getProfile } from "@/lib/profile";
 import { rushTier, TIER_LABEL } from "@/lib/relationships";
 import { createClient } from "@/lib/supabase/server";
@@ -37,6 +38,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const counts = { taken: 0, undecided: 0, declined: 0 };
   for (const g of gigs) counts[statusOf(g)]++;
   const discount = rel.discounts[client.tier];
+  const today = todayISO();
 
   return (
     <main className="mx-auto max-w-md px-4 pb-16 pt-6">
@@ -117,7 +119,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                     </span>
                     <span className="shrink-0 text-right">
                       <span className="block font-semibold tabular-nums">{formatMoney(r.realTakeHome)}</span>
-                      <StatusBadge status={statusOf(g)} />
+                      <StatusBadge status={statusOf(g)} played={isPlayed(g, g.gig_services, today)} />
                     </span>
                   </Link>
                 </li>

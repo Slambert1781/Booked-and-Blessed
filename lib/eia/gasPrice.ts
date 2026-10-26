@@ -12,7 +12,11 @@ export type GasPrice = {
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-async function fetchFromEia(seriesId: string): Promise<{ price: number; periodDate: string } | null> {
+/** Latest weekly price for a series, or the latest on or before `onOrBefore` (YYYY-MM-DD). */
+async function fetchFromEia(
+  seriesId: string,
+  onOrBefore?: string,
+): Promise<{ price: number; periodDate: string } | null> {
   const key = process.env.EIA_API_KEY;
   if (!key) throw new Error("EIA_API_KEY is not set");
   const q = new URLSearchParams({
@@ -23,6 +27,7 @@ async function fetchFromEia(seriesId: string): Promise<{ price: number; periodDa
     "sort[0][column]": "period",
     "sort[0][direction]": "desc",
     length: "1",
+    ...(onOrBefore && { end: onOrBefore }),
   });
   const res = await fetch(`https://api.eia.gov/v2/petroleum/pri/gnd/data/?${q}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`EIA ${res.status}`);
@@ -79,4 +84,16 @@ export async function getGasPrice(state: string | null): Promise<GasPrice> {
     return { price: latest.price, areaName: s.areaName, kind: s.kind, periodDate: latest.periodDate };
   }
   throw new Error("No gas price available.");
+}
+
+/**
+ * The weekly average for the week of a past date, for gigs entered after
+ * they happened. Not cached: each past week is looked up once per gig.
+ */
+export async function getGasPriceForDate(state: string | null, date: string): Promise<GasPrice> {
+  for (const s of seriesForState(state)) {
+    const found = await fetchFromEia(s.seriesId, date);
+    if (found) return { price: found.price, areaName: s.areaName, kind: s.kind, periodDate: found.periodDate };
+  }
+  throw new Error("No gas price available for that date.");
 }

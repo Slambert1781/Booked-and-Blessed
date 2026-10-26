@@ -6,7 +6,14 @@ const STYLE: Record<GigStatus, string> = {
   declined: "bg-stone-200 text-stone-600",
 };
 
-export function StatusBadge({ status }: { status: GigStatus }) {
+export function StatusBadge({ status, played }: { status: GigStatus; played?: boolean }) {
+  if (played) {
+    return (
+      <span className="inline-block rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-900">
+        Played
+      </span>
+    );
+  }
   return (
     <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${STYLE[status]}`}>
       {STATUS_LABEL[status]}

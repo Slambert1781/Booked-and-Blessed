@@ -2,7 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ResultBreakdown } from "@/components/ResultBreakdown";
 import { formatDate, formatHours, formatMiles, formatMoney, formatTime } from "@/lib/format";
-import { resultForSavedGig, SERVICE_KIND_LABEL, settingsFrom, statusOf } from "@/lib/gigs";
+import {
+  actualsOf,
+  canCompare,
+  isPlayed,
+  resultForSavedGig,
+  SERVICE_KIND_LABEL,
+  settingsFrom,
+  statusOf,
+} from "@/lib/gigs";
+import { todayISO } from "@/lib/today";
 import { relationshipSettingsFrom, verdictFor, KIND_LABEL } from "@/lib/clients";
 import { getClient } from "@/lib/clientsServer";
 import { loadGig } from "@/lib/loadGig";
@@ -27,6 +36,9 @@ export default async function GigResultPage({
 
   const settings = settingsFrom(me?.profile);
   const result = resultForSavedGig(gig, services, settings);
+  const estimate = canCompare(gig) ? resultForSavedGig(gig, services, settings, false) : null;
+  const played = isPlayed(gig, services, todayISO());
+  const needsActuals = played && actualsOf(gig) === null;
   const client = await getClient(gig.client_id);
   const verdict = verdictFor(
     result,
@@ -64,6 +76,15 @@ export default async function GigResultPage({
         </Link>
       </div>
 
+      {needsActuals && (
+        <Link
+          href={`/gigs/${gig.id}/edit#actuals`}
+          className="mt-4 block rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900 active:bg-indigo-100"
+        >
+          <strong>This gig has happened.</strong> Enter what it actually paid and cost →
+        </Link>
+      )}
+
       {updated && (
         <p role="status" className="mt-4 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white">
           ✓ Changes saved
@@ -76,11 +97,21 @@ export default async function GigResultPage({
           verdict={verdict}
           taxRatePct={settings.taxRatePct}
           pensionPct={num(gig.pension_pct ?? null)}
+          estimate={estimate}
         />
       </div>
 
       <section className="mt-6">
-        <DecisionButtons gigId={gig.id} status={statusOf(gig)} />
+        {played ? (
+          <p className="text-sm text-stone-600">
+            <span className="mr-2 inline-block rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-900">
+              Played
+            </span>
+            You booked and played this gig.
+          </p>
+        ) : (
+          <DecisionButtons gigId={gig.id} status={statusOf(gig)} />
+        )}
       </section>
 
       <section className="mt-8">
