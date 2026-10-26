@@ -7,6 +7,7 @@ import {
   type RushPeriod,
   type TierDiscounts,
 } from "@/lib/relationships";
+import { findAddress, withState } from "@/lib/google/places";
 import { createClient } from "@/lib/supabase/server";
 import { FEDERAL_MEAL_RATES, MEALS, type MealRates } from "@/lib/meals";
 
@@ -89,11 +90,24 @@ export async function saveProfile(input: ProfileInput): Promise<{ error: string 
     return { error: "Check the Holiday Rush dates." };
 
 
+  // A typed address (not picked from the suggestions) has no map location, so
+  // look it up now, using the state to rule out same-named streets elsewhere.
+  // Otherwise every drive would be worked out from Google's best guess.
+  let home = { home_address: input.homeAddress.trim(), home_lat: input.homeLat, home_lng: input.homeLng };
+  if (input.homeLat === null || input.homeLng === null) {
+    try {
+      const found = await findAddress(withState(home.home_address, input.homeState));
+      if (found && (!found.state || found.state === input.homeState)) {
+        home = { home_address: found.address, home_lat: found.lat, home_lng: found.lng };
+      }
+    } catch {
+      // Address search unavailable: keep the typed address.
+    }
+  }
+
   const { error } = await supabase.from("profiles").upsert({
     user_id: user.id,
-    home_address: input.homeAddress.trim(),
-    home_lat: input.homeLat,
-    home_lng: input.homeLng,
+    ...home,
     home_state: input.homeState,
     vehicle_year: input.vehicleYear ? Number(input.vehicleYear) : null,
     vehicle_make: input.vehicleMake || null,

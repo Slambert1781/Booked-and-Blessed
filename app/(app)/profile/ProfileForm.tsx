@@ -125,6 +125,12 @@ export function ProfileForm({
           onChange={(v) => setHome((prev) => ({ ...v, state: v.state ?? prev.state }))}
           placeholder="Start typing your address"
         />
+        {home.address.trim() && (home.lat === null || home.lng === null) && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Pick your address from the suggestions so every drive is worked out from the right place. If you type
+            it instead, include the city; we&apos;ll look it up when you save.
+          </p>
+        )}
         <label className="block">
           <span className="block text-sm font-medium">State</span>
           <select

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getGasPriceForDate, type GasPrice } from "@/lib/eia/gasPrice";
+import { withState } from "@/lib/google/places";
 import { oneWayDrive } from "@/lib/google/routes";
 import { getProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
@@ -19,8 +20,10 @@ export async function lookupDrive(
   if (!result?.profile?.home_address) return { error: "Set your home address in your profile first." };
   const p = result.profile;
   try {
-    const drive = await oneWayDrive({ address: p.home_address!, lat: p.home_lat, lng: p.home_lng }, venue);
-    return { ...drive, from: p.home_address!, to: venue.address };
+    // Without saved coordinates, add the state so Google can't pick a same-named street elsewhere.
+    const from = p.home_lat != null && p.home_lng != null ? p.home_address! : withState(p.home_address!, p.home_state);
+    const drive = await oneWayDrive({ address: from, lat: p.home_lat, lng: p.home_lng }, venue);
+    return { ...drive, from, to: venue.address };
   } catch {
     return { error: "Couldn't find a driving route. Type the miles and drive time in below." };
   }

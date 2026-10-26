@@ -28,7 +28,10 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
 ## Profile (one-time setup, editable later)
 
 - Name and optional photo
-- Home address (with state, for gas prices)
+- Home address (with state, for gas prices). Picked from Google suggestions
+  so it has a map location; a typed address is looked up on save (with the
+  state added), and drive lookups add the state to any address without one,
+  so Google never guesses a same-named street in another state.
 - Car: year / make / model from fueleconomy.gov (no trim). The MPG is the
   average combined MPG across all versions of that model, shown with the
   range; or a typed-in MPG

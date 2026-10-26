@@ -72,3 +72,43 @@ export async function placeDetails(placeId: string, sessionToken: string): Promi
     state,
   };
 }
+
+/**
+ * Best match for a typed address (Places Text Search), restricted to the US.
+ * Used when an address wasn't picked from the suggestions, so it has no
+ * coordinates; include the state in `text` to avoid same-named streets elsewhere.
+ */
+export async function findAddress(text: string): Promise<PlaceDetails | null> {
+  const res = await fetch(`${BASE}/places:searchText`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": key(),
+      "X-Goog-FieldMask": "places.formattedAddress,places.location,places.addressComponents",
+    },
+    body: JSON.stringify({ textQuery: text, regionCode: "us", pageSize: 1 }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Places text search ${res.status}`);
+  const data = (await res.json()) as {
+    places?: {
+      formattedAddress: string;
+      location: { latitude: number; longitude: number };
+      addressComponents?: { shortText: string; types: string[] }[];
+    }[];
+  };
+  const p = data.places?.[0];
+  if (!p) return null;
+  return {
+    address: p.formattedAddress,
+    lat: p.location.latitude,
+    lng: p.location.longitude,
+    state: p.addressComponents?.find((c) => c.types.includes("administrative_area_level_1"))?.shortText ?? null,
+  };
+}
+
+/** "1810 15th Ave SW" + "OR" -> "1810 15th Ave SW, OR" (unless the state is already in it). */
+export function withState(address: string, state: string | null | undefined): string {
+  if (!state) return address;
+  return new RegExp(`\\b${state}\\b`, "i").test(address) ? address : `${address}, ${state}`;
+}
