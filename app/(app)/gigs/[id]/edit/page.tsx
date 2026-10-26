@@ -8,6 +8,7 @@ import { settingsFrom } from "@/lib/gigs";
 import { loadGig } from "@/lib/loadGig";
 import { getProfile } from "@/lib/profile";
 import { num } from "@/lib/types";
+import { DeleteGigButton } from "@/components/DeleteGigButton";
 import { GigForm } from "../../new/GigForm";
 
 export default async function EditGigPage({ params }: { params: Promise<{ id: string }> }) {
@@ -48,6 +49,9 @@ export default async function EditGigPage({ params }: { params: Promise<{ id: st
         initial={gigToFormValues(gig, services, "edit")}
         mode={{ kind: "edit", gigId: id }}
       />
+      <div className="mt-10 border-t border-stone-200 pt-4">
+        <DeleteGigButton gigId={id} name={gig.title || gig.venue_address} />
+      </div>
     </main>
   );
 }

@@ -2,14 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ResultBreakdown } from "@/components/ResultBreakdown";
 import { formatDate, formatHours, formatMiles, formatMoney, formatTime } from "@/lib/format";
-import { resultForSavedGig, settingsFrom, statusOf } from "@/lib/gigs";
+import { resultForSavedGig, SERVICE_KIND_LABEL, settingsFrom, statusOf } from "@/lib/gigs";
 import { relationshipSettingsFrom, verdictFor, KIND_LABEL } from "@/lib/clients";
 import { getClient } from "@/lib/clientsServer";
 import { loadGig } from "@/lib/loadGig";
 import { TIER_LABEL } from "@/lib/relationships";
 import { getProfile } from "@/lib/profile";
 import { num } from "@/lib/types";
-import { deleteGig } from "./actions";
+import { DeleteGigButton } from "@/components/DeleteGigButton";
 import { DecisionButtons } from "./DecisionButtons";
 
 export default async function GigResultPage({
@@ -50,8 +50,8 @@ export default async function GigResultPage({
       )}
       <p className="mt-1 text-sm text-stone-500">
         {gig.gig_type === "orchestra"
-          ? `Orchestra · ${gig.number_of_services} services at ${formatMoney(num(gig.fee_per_service) ?? 0)}`
-          : "Flat fee"}
+          ? `Paid per service · ${gig.number_of_services} × ${formatMoney(num(gig.fee_per_service) ?? 0)}`
+          : `One fee · ${formatMoney(num(gig.flat_fee) ?? 0)}`}
         {gig.is_union && " · Union"}
       </p>
 
@@ -88,7 +88,10 @@ export default async function GigResultPage({
         <ul className="mt-2 divide-y divide-stone-200 rounded-2xl bg-white px-4 shadow-sm">
           {(services ?? []).map((s) => (
             <li key={s.id} className="flex justify-between py-3">
-              <span>{formatDate(s.service_date)}</span>
+              <span>
+                {formatDate(s.service_date)}
+                <span className="block text-xs text-stone-500">{SERVICE_KIND_LABEL[s.kind ?? "rehearsal"]}</span>
+              </span>
               <span className="text-stone-600">
                 {formatTime(s.start_time)}
                 {num(s.duration_hours ?? null) !== null && (
@@ -121,9 +124,9 @@ export default async function GigResultPage({
         </p>
       </section>
 
-      <form action={deleteGig.bind(null, gig.id)} className="mt-10">
-        <button className="w-full rounded-lg py-3 text-red-700 active:bg-red-50">Delete this gig</button>
-      </form>
+      <div className="mt-10">
+        <DeleteGigButton gigId={gig.id} name={gig.title || gig.venue_address} />
+      </div>
     </main>
   );
 }

@@ -67,7 +67,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     { takeHome: 0, pay: 0, tax: 0 },
   );
   const upcomingGroups = groupByGig(
-    entries.filter((e) => e.date >= today),
+    // Only gigs after the month on screen, so nothing from this month repeats.
+    entries.filter((e) => e.date.slice(0, 7) > key),
     money,
   ).slice(0, 5);
 
@@ -157,10 +158,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             <div className="mt-2 rounded-2xl bg-indigo-700 px-4 py-3 text-white">
               <p className="text-sm text-indigo-200">Take-home in {label}</p>
               <p className="text-3xl font-bold tabular-nums">{formatMoney(monthTotals.takeHome)}</p>
-              <p className="text-sm text-indigo-100 tabular-nums">from {formatMoney(monthTotals.pay)} pay, after travel</p>
+              <p className="text-sm text-indigo-100 tabular-nums">from {formatMoney(monthTotals.pay)} pay, after travel{monthTotals.tax > 0 ? " and taxes" : ""}</p>
               {monthTotals.tax > 0 && (
                 <p className="mt-2 border-t border-indigo-500 pt-2 text-sm text-indigo-100 tabular-nums">
-                  Set aside for taxes: <strong className="text-white">{formatMoney(monthTotals.tax)}</strong>
+                  Set aside for taxes: <strong className="text-white">{formatMoney(monthTotals.tax)}</strong> (already
+                  taken out above)
                 </p>
               )}
             </div>
@@ -169,12 +171,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         )}
       </section>
 
-      {key !== monthKey(thisMonth) || inMonth.length === 0 ? (
+      {key === monthKey(thisMonth) ? (
         <section className="mt-6">
-          <h2 className="text-lg font-semibold">Coming up</h2>
+          <h2 className="text-lg font-semibold">After {label.split(" ")[0]}</h2>
           {upcomingGroups.length === 0 ? (
             <p className="mt-2 text-sm text-stone-500">
-              No upcoming gigs. Open a gig and tap <strong>Book it</strong> to add it here.
+              Nothing booked after {label.split(" ")[0]} yet. Open a gig and tap <strong>Book it</strong> to add it.
             </p>
           ) : (
             <GigList groups={upcomingGroups} />

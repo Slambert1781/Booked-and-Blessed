@@ -44,6 +44,30 @@ const STEPS: Step[] = [
         : "Every rehearsal and concert for gigs you've booked, with what you'll take home each month.",
   },
   {
+    targets: ["clients", "menu"],
+    title: "Clients and relationship tiers",
+    body: (t) => (
+      <>
+        Not every gig is only about the money. Give each orchestra, church or contractor a tier, from{" "}
+        <strong>New Face</strong> to <strong>Highly Favored</strong>; closer relationships lower your minimum hourly
+        rate for their gigs.
+        <br />
+        <br />
+        <strong>Example:</strong> a <strong>$300</strong> concert set works out to <strong>$26 an hour</strong> after
+        gas and driving. Against a $40 minimum that&apos;s <strong className="text-red-700">red</strong> for a
+        stranger, but <strong className="text-emerald-700">green</strong> for your Highly Favored orchestra, whose
+        minimum is $24.
+        {t === "menu" && (
+          <>
+            <br />
+            <br />
+            Find <strong>Clients</strong> in the menu.
+          </>
+        )}
+      </>
+    ),
+  },
+  {
     targets: ["profile", "menu"],
     title: "Your profile",
     body: (t) =>

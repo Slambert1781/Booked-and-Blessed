@@ -18,7 +18,7 @@ export function AppNav() {
     <nav className="space-y-1">
       {item("/", "Your gigs", path === "/" || (path.startsWith("/gigs/") && path !== "/gigs/new"))}
       {item("/calendar", "Calendar", path.startsWith("/calendar"), "calendar")}
-      {item("/clients", "Clients", path.startsWith("/clients"))}
+      {item("/clients", "Clients", path.startsWith("/clients"), "clients")}
       {item("/gigs/new", "+ New gig", path === "/gigs/new")}
       {item("/?tour=1", "How it works", false)}
       <form action="/auth/sign-out" method="post">

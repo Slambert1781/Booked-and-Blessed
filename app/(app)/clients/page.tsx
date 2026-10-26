@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { TierBadge } from "@/components/TierBadge";
+import { TierExplainer } from "@/components/TierExplainer";
+import { relationshipSettingsFrom } from "@/lib/clients";
 import { KIND_LABEL, type ClientRow } from "@/lib/clients";
 import { bookedTotalsByYear } from "@/lib/clientStats";
 import { formatMoney } from "@/lib/format";
@@ -41,6 +43,14 @@ export default async function ClientsPage() {
         Orchestras, churches, contractors and couples who book you. Closer relationships lower your minimum rate for
         their gigs.
       </p>
+
+      <div className="mt-4">
+        <TierExplainer
+          discounts={relationshipSettingsFrom(me?.profile).discounts}
+          minHourlyRate={relationshipSettingsFrom(me?.profile).minHourlyRate}
+          open={!clients?.length}
+        />
+      </div>
 
       {error ? (
         <p className="mt-6 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">

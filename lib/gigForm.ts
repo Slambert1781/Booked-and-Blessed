@@ -1,9 +1,9 @@
 import type { AddressValue } from "@/components/AddressInput";
-import type { GigRow, GigStatus, ServiceRow } from "@/lib/gigs";
+import type { GigRow, GigStatus, ServiceKind, ServiceRow } from "@/lib/gigs";
 import { statusOf } from "@/lib/gigs";
 import { num } from "@/lib/types";
 
-export type FormService = { date: string; time: string; hours: string };
+export type FormService = { kind: ServiceKind; date: string; time: string; hours: string };
 
 /** Where the gas price on the form came from; null = typed in by hand. */
 export type GasSource = { areaName: string; periodDate: string | null; kind?: "state" | "region" | "national" } | null;
@@ -25,6 +25,8 @@ export type GigFormValues = {
   hosted: boolean;
   roomCostPerNight: string;
   stipendPerNight: string;
+  /** "" = work it out from the dates. */
+  lodgingNights: string;
   isUnion: boolean;
   pensionPct: string;
   miles: string;
@@ -48,13 +50,15 @@ const str = (v: number | string | null | undefined) => {
 export function gigToFormValues(gig: GigRow, services: ServiceRow[], mode: "edit" | "copy"): GigFormValues {
   const hand = !gig.gas_price_source || gig.gas_price_source === "Entered by hand";
   return {
-    title: gig.title ?? "",
+    // A copy needs its own name, so it starts blank.
+    title: mode === "edit" ? (gig.title ?? "") : "",
     clientId: gig.client_id ?? null,
     gigType: gig.gig_type,
     venue: { address: gig.venue_address, lat: gig.venue_lat, lng: gig.venue_lng, state: null },
     feePerService: str(gig.fee_per_service),
     flatFee: str(gig.flat_fee),
     services: services.map((s) => ({
+      kind: s.kind ?? "rehearsal",
       date: s.service_date,
       time: (s.start_time ?? "").slice(0, 5),
       hours: str(s.duration_hours),
@@ -67,6 +71,7 @@ export function gigToFormValues(gig: GigRow, services: ServiceRow[], mode: "edit
     hosted: gig.hosted,
     roomCostPerNight: str(gig.room_cost_per_night),
     stipendPerNight: str(gig.stipend_per_night),
+    lodgingNights: gig.lodging_nights ? String(gig.lodging_nights) : "",
     isUnion: gig.is_union ?? false,
     pensionPct: str(gig.pension_pct),
     miles: str(gig.one_way_miles),

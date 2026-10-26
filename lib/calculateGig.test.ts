@@ -175,10 +175,34 @@ describe("calculateGig: hourly rate, tax and union", () => {
     expect(calculateGig(profile, withHours, lookups).meetsMinimum).toBeNull();
   });
 
-  it("tax set-aside is a % of the pay and doesn't change take-home", () => {
+  it("tax set-aside is a % of the pay and comes out of take-home", () => {
     const r = calculateGig({ ...profile, taxRatePct: 25 }, withHours, lookups);
     expect(r.taxSetAside).toBe(100);
-    expect(r.realTakeHome).toBeCloseTo(288);
+    expect(r.takeHomeBeforeTax).toBeCloseTo(288);
+    expect(r.realTakeHome).toBeCloseTo(188);
+  });
+
+  it("tax doesn't change the hourly rate (rates are quoted before tax)", () => {
+    const withTax = calculateGig({ ...profile, taxRatePct: 25 }, withHours, lookups);
+    const without = calculateGig(profile, withHours, lookups);
+    expect(withTax.realHourlyRate).toBeCloseTo(without.realHourlyRate!);
+  });
+
+  it("lodging nights can be set by hand", () => {
+    // One concert, but three nights away.
+    const r = calculateGig(
+      profile,
+      { ...wedding, stayingOvernight: true, roomCostPerNight: 100, stipendPerNight: 20, lodgingNights: 3 },
+      lookups,
+    );
+    expect(r.nights).toBe(3);
+    expect(r.lodgingCost).toBe(300);
+    expect(r.lodgingStipend).toBe(60);
+    expect(r.roundTrips).toBe(1);
+  });
+
+  it("lodging nights are ignored when not staying overnight", () => {
+    expect(calculateGig(profile, { ...wedding, lodgingNights: 3, roomCostPerNight: 100 }, lookups).nights).toBe(0);
   });
 
   it("union pension is a % of pay, only on union gigs, and not part of take-home", () => {

@@ -30,7 +30,6 @@ export type ProfileInput = {
   tierDiscounts: Record<string, string>;
   holidayRushEnabled: boolean;
   rushPeriods: RushPeriod[];
-  rushKeepPct: string;
 };
 
 const positive = (s: string) => {
@@ -76,9 +75,7 @@ export async function saveProfile(input: ProfileInput): Promise<{ error: string 
   const rushPeriods = input.rushPeriods.map((p) => ({ label: p.label.trim() || "Rush", start: p.start, end: p.end }));
   if (rushPeriods.some((p) => !isMonthDay(p.start) || !isMonthDay(p.end)))
     return { error: "Check the Holiday Rush dates." };
-  const rushKeepPct = Number(input.rushKeepPct.replace("%", ""));
-  if (!Number.isFinite(rushKeepPct) || rushKeepPct < 0 || rushKeepPct > 100)
-    return { error: "The Holiday Rush setting must be a percentage between 0 and 100." };
+
 
   const { error } = await supabase.from("profiles").upsert({
     user_id: user.id,
@@ -101,7 +98,6 @@ export async function saveProfile(input: ProfileInput): Promise<{ error: string 
     tier_discounts: tierDiscounts,
     holiday_rush_enabled: input.holidayRushEnabled,
     rush_periods: rushPeriods,
-    rush_discount_keep_pct: rushKeepPct,
   });
   if (error) return { error: "Couldn't save your profile. Please try again." };
 

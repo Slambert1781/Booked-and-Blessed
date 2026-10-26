@@ -105,9 +105,12 @@ export type VerdictInput = {
   client: { name: string; tier: Tier } | null;
   discounts: TierDiscounts;
   rush: RushPeriod | null;
-  /** % of each discount kept during a rush (50 = halved). */
-  rushKeepPct: number;
 };
+
+/** During a Holiday Rush every client counts as one tier lower. */
+export function rushTier(tier: Tier): Tier {
+  return TIERS[Math.max(TIERS.indexOf(tier) - 1, 0)];
+}
 
 export type VerdictResult = {
   verdict: Verdict;
@@ -133,7 +136,8 @@ const Cap = (v: Verdict) => v[0].toUpperCase() + v.slice(1);
 export function judgeGig(i: VerdictInput): VerdictResult | null {
   const tier: Tier = i.client?.tier ?? "new_face";
   const baseDiscount = i.discounts[tier];
-  const discountPct = i.rush ? baseDiscount * (i.rushKeepPct / 100) : baseDiscount;
+  const appliedTier = i.rush ? rushTier(tier) : tier;
+  const discountPct = i.discounts[appliedTier];
   const hourly = i.totalHours > 0 ? (i.netCash + i.pension) / i.totalHours : null;
 
   // Hard floor: losing money is red whatever the relationship.
@@ -155,11 +159,11 @@ export function judgeGig(i: VerdictInput): VerdictResult | null {
   const compare = verdict === "green" ? "above" : "below";
   let explanation =
     discountPct > 0
-      ? `${Cap(verdict)}: ${formatMoney(hourly)}/hr is ${compare} ${formatMoney(effectiveMin)}/hr, your minimum for ${who} (${TIER_LABEL[tier]}, ${round(discountPct)}% off ${formatMoney(i.minHourlyRate)}).`
+      ? `${Cap(verdict)}: ${formatMoney(hourly)}/hr is ${compare} ${formatMoney(effectiveMin)}/hr, your minimum for ${who} (${TIER_LABEL[appliedTier]}, ${round(discountPct)}% off ${formatMoney(i.minHourlyRate)}).`
       : `${Cap(verdict)}: ${formatMoney(hourly)}/hr is ${compare} your ${formatMoney(i.minHourlyRate)}/hr minimum${i.client ? ` (${i.client.name} is a ${TIER_LABEL[tier]}, so no discount)` : ""}.`;
 
-  if (i.rush && baseDiscount > 0) {
-    explanation += ` Holiday Rush (${i.rush.label}): the ${TIER_LABEL[tier]} discount is cut from ${round(baseDiscount)}% to ${round(discountPct)}%.`;
+  if (i.rush && appliedTier !== tier) {
+    explanation += ` Holiday Rush (${i.rush.label}): ${i.client?.name ?? "this client"} counts as ${TIER_LABEL[appliedTier]} instead of ${TIER_LABEL[tier]}, so ${round(discountPct)}% off instead of ${round(baseDiscount)}%.`;
   }
   if (tier !== "new_face") {
     const asNewFace = colourFor(hourly, i.minHourlyRate);

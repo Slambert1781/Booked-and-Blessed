@@ -24,7 +24,7 @@ export function ResultBreakdown({
           {formatMoney(r.realTakeHome)}
         </p>
         <p className="mt-2 text-sm text-indigo-100">
-          from {formatMoney(r.totalPay)} pay, after travel
+          from {formatMoney(r.totalPay)} pay, after travel{r.taxSetAside > 0 ? " and taxes" : ""}
         </p>
       </div>
 
@@ -56,17 +56,18 @@ export function ResultBreakdown({
           value={`− ${formatMoney(r.driveTimeCost)}`}
           negative
         />
+        {r.taxSetAside > 0 && (
+          <Row
+            label={`Taxes${taxRatePct ? ` (${taxRatePct}% of pay)` : ""}`}
+            detail="Set this aside from the pay for your tax bill."
+            value={`− ${formatMoney(r.taxSetAside)}`}
+            negative
+          />
+        )}
       </dl>
 
-      {(r.taxSetAside > 0 || r.pensionContribution > 0) && (
+      {r.pensionContribution > 0 && (
         <dl className="divide-y divide-stone-200 rounded-2xl bg-white px-4 shadow-sm">
-          {r.taxSetAside > 0 && (
-            <Row
-              label={`Set aside for taxes${taxRatePct ? ` (${taxRatePct}%)` : ""}`}
-              detail="Put this away from the pay. It isn't taken off your take-home above."
-              value={formatMoney(r.taxSetAside)}
-            />
-          )}
           {r.pensionContribution > 0 && (
             <Row
               label={`Union pension${pensionPct ? ` (${pensionPct}%)` : ""}`}

@@ -56,8 +56,8 @@ describe("gigToFormValues", () => {
       pensionPct: "10",
     });
     expect(v.services).toEqual([
-      { date: "2026-12-05", time: "19:30", hours: "2.5" },
-      { date: "2026-12-06", time: "", hours: "" },
+      { kind: "rehearsal", date: "2026-12-05", time: "19:30", hours: "2.5" },
+      { kind: "rehearsal", date: "2026-12-06", time: "", hours: "" },
     ]);
     expect(v.venue).toMatchObject({ lat: 44.56, lng: -123.26 });
   });
@@ -68,6 +68,7 @@ describe("gigToFormValues", () => {
     expect(v.gasPrice).toBe("");
     expect(v.gasSource).toBeNull();
     expect(v.feePerService).toBe("150"); // still editable on the form
+    expect(v.title).toBe(""); // a copy needs a new name
   });
 
   it("a hand-typed gas price has no source", () => {

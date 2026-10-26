@@ -34,8 +34,9 @@ export default async function NewGigPage({ searchParams }: { searchParams: Promi
       <h1 className="mt-2 text-2xl font-semibold">{source ? "Copy of gig" : "New gig"}</h1>
       {source && (
         <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Copied from <strong>{source.gig.title || source.gig.venue_address}</strong>. Update the{" "}
-          <strong>dates</strong> and check the <strong>pay</strong>, since fees often change from year to year.
+          Copied from <strong>{source.gig.title || source.gig.venue_address}</strong>. Give it a{" "}
+          <strong>new name</strong>, update the <strong>dates</strong> and check the <strong>pay</strong>, since fees
+          often change from year to year.
           Today&apos;s gas price and your current car and rates are used.
         </p>
       )}
@@ -52,6 +53,7 @@ export default async function NewGigPage({ searchParams }: { searchParams: Promi
         gas={gas}
         initial={source ? gigToFormValues(source.gig, source.services, "copy") : undefined}
         mode={source ? { kind: "copy" } : { kind: "new" }}
+        copiedFromTitle={source ? source.gig.title || source.gig.venue_address : undefined}
       />
     </main>
   );

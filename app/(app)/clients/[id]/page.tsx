@@ -8,7 +8,7 @@ import { bookedTotalsByYear } from "@/lib/clientStats";
 import { formatDateRange, formatMoney } from "@/lib/format";
 import { resultForSavedGig, settingsFrom, statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
 import { getProfile } from "@/lib/profile";
-import { TIER_LABEL } from "@/lib/relationships";
+import { rushTier, TIER_LABEL } from "@/lib/relationships";
 import { createClient } from "@/lib/supabase/server";
 import { DeleteClient } from "./DeleteClient";
 import { EditClient } from "./EditClient";
@@ -61,7 +61,10 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           </>
         )}
         {discount > 0 && rel.rushEnabled && rel.rushPeriods.length > 0 && (
-          <>, or {Math.round(discount * (rel.rushKeepPct / 100) * 10) / 10}% off during Holiday Rush</>
+          <>
+            . During Holiday Rush they count as {TIER_LABEL[rushTier(client.tier)]} (
+            {rel.discounts[rushTier(client.tier)]}% off)
+          </>
         )}
         .
       </p>

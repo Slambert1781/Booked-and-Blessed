@@ -5,19 +5,20 @@ import { redirect } from "next/navigation";
 import { oneWayDrive } from "@/lib/google/routes";
 import { getProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
-import { GIG_STATUSES, type GigStatus } from "@/lib/gigs";
+import { GIG_STATUSES, type GigStatus, type ServiceKind } from "@/lib/gigs";
 import { isProfileComplete, num } from "@/lib/types";
 
 type Place = { address: string; lat: number | null; lng: number | null };
 
 export async function lookupDrive(
   venue: Place,
-): Promise<{ miles: number; minutes: number } | { error: string }> {
+): Promise<{ miles: number; minutes: number; from: string; to: string } | { error: string }> {
   const result = await getProfile();
   if (!result?.profile?.home_address) return { error: "Set your home address in your profile first." };
   const p = result.profile;
   try {
-    return await oneWayDrive({ address: p.home_address!, lat: p.home_lat, lng: p.home_lng }, venue);
+    const drive = await oneWayDrive({ address: p.home_address!, lat: p.home_lat, lng: p.home_lng }, venue);
+    return { ...drive, from: p.home_address!, to: venue.address };
   } catch {
     return { error: "Couldn't find a driving route. Type the miles and drive time in below." };
   }
@@ -30,7 +31,8 @@ export type GigInput = {
   venue: Place;
   feePerService: string;
   flatFee: string;
-  services: { date: string; time: string; hours: string }[];
+  services: { kind: ServiceKind; date: string; time: string; hours: string }[];
+  lodgingNights: string;
   paysMileage: boolean;
   reimbType: "per_mile" | "flat";
   reimbRatePerMile: string;
@@ -59,14 +61,23 @@ function amount(s: string): number | null {
 }
 
 type GigRowFields = Record<string, unknown>;
+type SavedService = { kind: ServiceKind; date: string; time: string; hours: number | null };
 
 /** Check the form and turn it into database fields (shared by create and update). */
 function validate(
   input: GigInput,
-): { error: string } | { fields: GigRowFields; services: { date: string; time: string; hours: number | null }[]; status: GigStatus } {
+): { error: string } | { fields: GigRowFields; services: SavedService[]; status: GigStatus } {
   const services = input.services
     .filter((s) => s.date)
-    .map((s) => ({ date: s.date, time: s.time, hours: amount(s.hours) }));
+    .map((s) => ({
+      kind: (s.kind === "performance" ? "performance" : "rehearsal") as ServiceKind,
+      date: s.date,
+      time: s.time,
+      hours: amount(s.hours),
+    }));
+  const nights = input.stayingOvernight ? amount(input.lodgingNights) : null;
+  if (nights !== null && (Number.isNaN(nights) || nights < 1 || nights > 60 || !Number.isInteger(nights)))
+    return { error: "Nights must be a whole number like 3, or leave it blank." };
   const fee = amount(input.feePerService);
   const flat = amount(input.flatFee);
   const rate = amount(input.reimbRatePerMile);
@@ -123,6 +134,7 @@ function validate(
       hosted: input.stayingOvernight && input.hosted,
       room_cost_per_night: input.stayingOvernight && !input.hosted ? room : null,
       stipend_per_night: input.stayingOvernight ? stipend : null,
+      lodging_nights: nights,
       is_union: input.isUnion,
       pension_pct: pension,
       one_way_miles: miles,
@@ -136,8 +148,9 @@ function validate(
   };
 }
 
-const serviceRows = (userId: string, gigId: string, services: { date: string; time: string; hours: number | null }[]) =>
+const serviceRows = (userId: string, gigId: string, services: SavedService[]) =>
   services.map((s) => ({
+    kind: s.kind,
     user_id: userId,
     gig_id: gigId,
     service_date: s.date,

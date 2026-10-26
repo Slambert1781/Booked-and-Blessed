@@ -19,7 +19,6 @@ const base: VerdictInput = {
   client: null,
   discounts: DEFAULT_TIER_DISCOUNTS,
   rush: null,
-  rushKeepPct: 50,
 };
 const symphony = (tier: Tier) => ({ name: "Willamette Symphony", tier });
 
@@ -61,13 +60,22 @@ describe("judgeGig", () => {
     expect(judgeGig({ ...base, totalHours: 0 })).toBeNull();
   });
 
-  it("Holiday Rush shrinks the discount", () => {
-    const rush = { label: "Christmas", start: "12-01", end: "12-24" };
+  it("Holiday Rush makes the client count as one tier lower", () => {
+    const rush = { label: "Holiday season", start: "10-01", end: "12-31" };
     const v = judgeGig({ ...base, client: symphony("highly_favored"), rush })!;
-    expect(v.discountPct).toBe(20);
-    expect(v.effectiveMin).toBeCloseTo(32);
-    expect(v.verdict).toBe("red"); // $26 < $27.20 (15% below $32)
-    expect(v.explanation).toContain("Holiday Rush (Christmas): the Highly Favored discount is cut from 40% to 20%.");
+    expect(v.discountPct).toBe(30); // Favored
+    expect(v.effectiveMin).toBeCloseTo(28);
+    expect(v.verdict).toBe("yellow"); // $26 is within 15% of $28
+    expect(v.explanation).toContain(
+      "Holiday Rush (Holiday season): Willamette Symphony counts as Favored instead of Highly Favored, so 30% off instead of 40%.",
+    );
+  });
+
+  it("a New Face stays a New Face in a rush", () => {
+    const rush = { label: "Holiday season", start: "10-01", end: "12-31" };
+    const v = judgeGig({ ...base, rush })!;
+    expect(v.discountPct).toBe(0);
+    expect(v.explanation).not.toContain("Holiday Rush");
   });
 
   it("union pension counts toward the verdict", () => {

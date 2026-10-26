@@ -17,11 +17,24 @@ function key() {
   return k;
 }
 
-export async function autocomplete(input: string, sessionToken: string): Promise<Suggestion[]> {
+export async function autocomplete(
+  input: string,
+  sessionToken: string,
+  near?: { lat: number; lng: number } | null,
+): Promise<Suggestion[]> {
   const res = await fetch(`${BASE}/places:autocomplete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Goog-Api-Key": key() },
-    body: JSON.stringify({ input, sessionToken, includedRegionCodes: ["us"] }),
+    body: JSON.stringify({
+      input,
+      sessionToken,
+      includedRegionCodes: ["us"],
+      // Prefer places near home (a bias, not a limit: far venues still appear).
+      ...(near && {
+        locationBias: { circle: { center: { latitude: near.lat, longitude: near.lng }, radius: 50000 } },
+        origin: { latitude: near.lat, longitude: near.lng },
+      }),
+    }),
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`Places autocomplete ${res.status}`);

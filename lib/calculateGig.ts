@@ -25,6 +25,8 @@ export type CalcGig = {
 
   stayingOvernight: boolean;
   hosted: boolean;
+  /** Nights you're staying, if not one fewer than the service days. */
+  lodgingNights?: number | null;
   roomCostPerNight?: number | null;
   stipendPerNight?: number | null;
 
@@ -54,6 +56,9 @@ export type GigResult = {
   mileageReimbursement: number;
   lodgingStipend: number;
   lodgingCost: number;
+  /** Take-home before the tax set-aside. */
+  takeHomeBeforeTax: number;
+  /** What you keep: after travel, lodging, drive time and the tax set-aside. */
   realTakeHome: number;
 
   /** Hours spent playing (sum of service lengths). */
@@ -76,7 +81,11 @@ const n = (v: number | null | undefined) => v ?? 0;
 export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLookups): GigResult {
   const serviceDays = new Set(gig.serviceDates.filter(Boolean)).size;
   const roundTrips = gig.stayingOvernight ? 1 : serviceDays;
-  const nights = gig.stayingOvernight ? Math.max(serviceDays - 1, 1) : 0;
+  const nights = gig.stayingOvernight
+    ? gig.lodgingNights && gig.lodgingNights > 0
+      ? gig.lodgingNights
+      : Math.max(serviceDays - 1, 1)
+    : 0;
 
   const totalPay =
     gig.gigType === "orchestra" ? n(gig.feePerService) * n(gig.numberOfServices) : n(gig.flatFee);
@@ -98,7 +107,7 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
   const lodgingCost = gig.stayingOvernight && !gig.hosted ? n(gig.roomCostPerNight) * nights : 0;
   const lodgingStipend = gig.stayingOvernight ? n(gig.stipendPerNight) * nights : 0;
 
-  const realTakeHome =
+  const takeHomeBeforeTax =
     totalPay + mileageReimbursement + lodgingStipend - gasCost - lodgingCost - driveTimeCost;
 
   const playingHours = (gig.serviceHours ?? []).reduce<number>((sum, h) => sum + (h ?? 0), 0);
@@ -108,6 +117,7 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
   const meetsMinimum =
     realHourlyRate === null || profile.minHourlyRate == null ? null : realHourlyRate >= profile.minHourlyRate;
   const taxSetAside = totalPay * (n(profile.taxRatePct) / 100);
+  const realTakeHome = takeHomeBeforeTax - taxSetAside;
   const pensionContribution = gig.isUnion ? totalPay * (n(gig.pensionPct) / 100) : 0;
 
   return {
@@ -123,6 +133,7 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
     mileageReimbursement,
     lodgingStipend,
     lodgingCost,
+    takeHomeBeforeTax,
     realTakeHome,
     playingHours,
     totalHours,

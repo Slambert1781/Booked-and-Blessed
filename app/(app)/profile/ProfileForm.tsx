@@ -56,7 +56,6 @@ export function ProfileForm({
   );
   const [holidayRushEnabled, setHolidayRushEnabled] = useState(rel.rushEnabled);
   const [rushPeriods, setRushPeriods] = useState<RushPeriod[]>(rel.rushPeriods);
-  const [rushKeepPct, setRushKeepPct] = useState(String(rel.rushKeepPct));
   const [defaultServiceHours, setDefaultServiceHours] = useState(str(profile?.default_service_hours ?? 2.5));
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -86,7 +85,6 @@ export function ProfileForm({
         tierDiscounts,
         holidayRushEnabled,
         rushPeriods,
-        rushKeepPct,
       });
       if (result?.error) setError(result.error);
     });
@@ -271,8 +269,9 @@ export function ProfileForm({
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Holiday Rush</h2>
         <p className="text-sm text-stone-600">
-          In your busiest weeks every date is scarce, so relationship discounts shrink. A gig counts as rush if any of
-          its services falls in one of these periods (every year).
+          In your busiest weeks every date is scarce, so loyalty counts for a little less: during a rush every client
+          counts as <strong>one tier lower</strong> (Highly Favored acts like Favored, Familiar like New Face). A gig
+          is in a rush if any of its services falls in one of these periods, every year.
         </p>
         <label className="flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 shadow-sm">
           <span>Use Holiday Rush</span>
@@ -287,21 +286,7 @@ export function ProfileForm({
         {holidayRushEnabled && (
           <>
             <RushPeriodsEditor value={rushPeriods} onChange={setRushPeriods} />
-            <label className="block">
-              <span className="block text-sm font-medium">During a rush, keep this much of each discount</span>
-              <div className="relative mt-1">
-                <input
-                  className="field pr-8"
-                  inputMode="decimal"
-                  value={rushKeepPct}
-                  onChange={(e) => setRushKeepPct(e.target.value)}
-                />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-500">%</span>
-              </div>
-              <span className="mt-1 block text-xs text-stone-500">
-                50% means a 40% discount becomes 20%. 0% means no discounts at all during a rush.
-              </span>
-            </label>
+
           </>
         )}
       </section>

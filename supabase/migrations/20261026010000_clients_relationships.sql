@@ -38,7 +38,7 @@ create index if not exists gigs_client_idx on public.gigs (client_id);
 -- Relationship settings on the profile.
 --   tier_discounts: % off the minimum hourly rate per tier, e.g. {"familiar": 10, ...}
 --   rush_periods: yearly date ranges, e.g. [{"label": "Holiday season", "start": "10-01", "end": "12-31"}]
---   rush_discount_keep_pct: how much of each discount survives a rush (50 = halved)
+--   rush_discount_keep_pct: no longer used (a rush now drops each client one tier)
 alter table public.profiles
   add column if not exists tier_discounts jsonb,
   add column if not exists holiday_rush_enabled boolean not null default true,

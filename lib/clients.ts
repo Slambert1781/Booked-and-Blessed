@@ -41,7 +41,6 @@ export type RelationshipSettings = {
   discounts: TierDiscounts;
   rushEnabled: boolean;
   rushPeriods: RushPeriod[];
-  rushKeepPct: number;
 };
 
 export function relationshipSettingsFrom(p: ProfileRow | null | undefined): RelationshipSettings {
@@ -50,7 +49,6 @@ export function relationshipSettingsFrom(p: ProfileRow | null | undefined): Rela
     discounts: tierDiscountsFrom(p?.tier_discounts),
     rushEnabled: p?.holiday_rush_enabled ?? true,
     rushPeriods: rushPeriodsFrom(p?.rush_periods),
-    rushKeepPct: num(p?.rush_discount_keep_pct ?? null) ?? 50,
   };
 }
 
@@ -69,6 +67,5 @@ export function verdictFor(
     client,
     discounts: s.discounts,
     rush: rushFor(serviceDates, s.rushPeriods, s.rushEnabled),
-    rushKeepPct: s.rushKeepPct,
   });
 }

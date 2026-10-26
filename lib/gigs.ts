@@ -49,6 +49,7 @@ export type GigRow = {
   is_union?: boolean | null;
   pension_pct?: Numeric;
   client_id?: string | null;
+  lodging_nights?: number | null;
   created_at: string;
 };
 
@@ -57,7 +58,11 @@ export type ServiceRow = {
   service_date: string;
   start_time: string | null;
   duration_hours?: Numeric;
+  kind?: ServiceKind | null;
 };
+
+export type ServiceKind = "rehearsal" | "performance";
+export const SERVICE_KIND_LABEL: Record<ServiceKind, string> = { rehearsal: "Rehearsal", performance: "Performance" };
 
 /** Profile settings that apply to every gig (not frozen per gig). */
 export type GigSettings = { taxRatePct: number | null; minHourlyRate: number | null };
@@ -83,6 +88,7 @@ export function resultForSavedGig(gig: GigRow, services: ServiceRow[], settings?
     hosted: gig.hosted,
     roomCostPerNight: num(gig.room_cost_per_night),
     stipendPerNight: num(gig.stipend_per_night),
+    lodgingNights: gig.lodging_nights ?? null,
     serviceHours: services.map((s) => num(s.duration_hours ?? null)),
     isUnion: gig.is_union ?? false,
     pensionPct: num(gig.pension_pct ?? null),
