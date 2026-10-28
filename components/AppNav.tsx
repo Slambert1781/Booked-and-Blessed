@@ -20,7 +20,7 @@ export function AppNav() {
       {item("/calendar", "Calendar", path.startsWith("/calendar"), "calendar")}
       {item("/clients", "Clients", path.startsWith("/clients"), "clients")}
       {item("/gigs/new", "+ New gig", path === "/gigs/new")}
-      {item("/?tour=1", "How it works", false)}
+      {item("/guide", "How it works", path.startsWith("/guide"))}
       <form action="/auth/sign-out" method="post">
         <button className="block w-full rounded-lg px-3 py-2.5 text-left text-stone-500 active:bg-stone-100">
           Sign out

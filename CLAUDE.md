@@ -146,6 +146,16 @@ daily cost, with the meals listed), drive time, taxes.
 Union pension appears separately. Then round trips, total miles and drive
 time.
 
+## Help for users
+
+- A first-time walkthrough on the gig list (`components/Tour.tsx`): short
+  boxes pointing at New gig, the gig list, Calendar, Clients and the profile.
+  Shown once per account; replayable.
+- **How it works** (`app/(app)/guide/page.tsx`, in the menu): the full guide,
+  one tap-to-open section per feature, with a Replay the quick tour button.
+- When a feature is added or changed, update the guide (and the walkthrough
+  if it touches the home screen) in the same change.
+
 ## Data model (Supabase)
 
 Every user table has `user_id` → `auth.users` and owner-only RLS policies.

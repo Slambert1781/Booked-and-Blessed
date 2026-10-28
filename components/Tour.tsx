@@ -21,19 +21,19 @@ const STEPS: Step[] = [
     targets: [],
     title: "Welcome!",
     body: () =>
-      "Booked and Blessed shows what a gig really pays once gas, drive time and hotels are taken out. Here's a quick tour. It takes 30 seconds.",
+      "Booked and Blessed shows what a gig really pays once gas, drive time, food and hotels are taken out. Here's a quick tour. It takes 30 seconds.",
   },
   {
     targets: ["new-gig"],
     title: "Got offered a gig?",
     body: () =>
-      "Tap New gig. Enter the fee, the venue and the dates, and the app works out the miles, drive time and gas for you, then shows your real take-home.",
+      "Tap New gig. Enter the fee, the venue and each rehearsal and performance. The app works out the miles, drive time, gas and food, then shows your real take-home and real hourly rate. Already played it? Turn on Already played to log what it actually paid and cost.",
   },
   {
     targets: ["gigs"],
     title: "Every gig you check is saved here",
     body: () =>
-      "Open one to see its breakdown, then Book it or Decline it. The tabs sort your gigs into Undecided, Booked and Declined.",
+      "Each gig gets a colour: green is worth it, yellow is a close call, red isn't. Open one to see why, then Book it or Decline it. You can edit a gig or copy it for next season, and the tabs sort them into Undecided, Booked and Declined.",
   },
   {
     targets: ["calendar", "menu"],
@@ -71,7 +71,7 @@ const STEPS: Step[] = [
     targets: ["profile", "menu"],
     title: "Your profile",
     body: (t) =>
-      `Your home, car and hourly rates live ${t === "menu" ? "in the menu too" : "here"}. Change them any time. Gigs you've already saved keep the numbers they were worked out with.`,
+      `Your home, car, hourly rates, minimum rate, taxes and meal prices live ${t === "menu" ? "in the menu too" : "here"}. Change them any time. Gigs you've already saved keep the numbers they were worked out with.`,
   },
   {
     targets: [],
@@ -82,7 +82,7 @@ const STEPS: Step[] = [
         <strong>Share → Add to Home Screen</strong>. On Android, use Chrome&apos;s <strong>⋮ → Add to Home screen</strong>.
         <br />
         <br />
-        You can replay this tour from <strong>How it works</strong> in the menu.
+        For the full guide to every feature, open <strong>How it works</strong> in the menu.
       </>
     ),
   },

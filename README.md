@@ -42,10 +42,10 @@ Never commit `.env.local`. It's already in `.gitignore`.
 
 ### 1. Supabase
 
-1. **Create the tables.** Supabase → SQL Editor → New query. Paste in the
-   contents of `supabase/migrations/20261025000000_initial_schema.sql` and
-   click Run. (If you use the Supabase CLI instead: `supabase link` then
-   `supabase db push`.)
+1. **Create the tables.** Supabase → SQL Editor → New query. Run **every**
+   file in `supabase/migrations/`, one at a time, **oldest first** (the file
+   names start with the date, so alphabetical order is the right order). Each
+   one is safe to run twice.
 2. **Allow the app's addresses.** Authentication → URL Configuration:
    - **Site URL:** your live Vercel URL, e.g. `https://booked-and-blessed.vercel.app`
    - **Redirect URLs:** add
