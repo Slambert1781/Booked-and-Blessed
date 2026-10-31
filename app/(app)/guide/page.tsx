@@ -42,9 +42,11 @@ const SECTIONS: Section[] = [
       <>
         <ul>
           <li>
-            <strong>Client</strong> (optional): the orchestra, church, contractor or couple. Pick one or choose{" "}
-            <strong>+ New client</strong>. Their relationship tier affects the verdict (see{" "}
-            <a href="#clients">Clients</a>).
+            <strong>Client</strong> (first, and required): start typing the orchestra, church, contractor or
+            couple. Pick them from the list and their usual venue, pay and mileage and lodging terms fill in from
+            their last gig; change anything that&apos;s different. Someone new? Tap{" "}
+            <strong>Add &lsquo;name&rsquo; as a new client</strong> and pick their relationship tier; they&apos;re
+            added when you save. The tier affects the verdict (see <a href="#clients">Clients</a>).
           </li>
           <li>
             <strong>How are you paid?</strong> <strong>Per service</strong> means a fee for each rehearsal and
@@ -52,7 +54,7 @@ const SECTIONS: Section[] = [
             payment for the whole gig.
           </li>
           <li>
-            <strong>Venue</strong>: start typing and <strong>pick it from the suggestions</strong>. The miles and
+            <strong>Venue</strong> (required): start typing and <strong>pick it from the suggestions</strong>. The miles and
             minutes each way fill in from Google Maps, and the grey line underneath shows exactly which two
             addresses were used. You can type your own miles and minutes instead.
           </li>

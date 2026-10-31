@@ -7,6 +7,8 @@ export type AddressValue = {
   lat: number | null;
   lng: number | null;
   state: string | null;
+  /** The place's name, e.g. "First Presbyterian Church" (venues picked from suggestions). */
+  name?: string | null;
 };
 
 type Suggestion = { placeId: string; text: string };
@@ -32,6 +34,15 @@ export function AddressInput({
   const [unavailable, setUnavailable] = useState(false);
   const session = useRef<string>(crypto.randomUUID());
   const skipNext = useRef(true);
+
+  // Follow changes made from outside, e.g. a venue filled in from the client's last gig.
+  useEffect(() => {
+    if (value.address !== query) {
+      skipNext.current = true;
+      setQuery(value.address);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.address]);
 
   useEffect(() => {
     if (skipNext.current) {

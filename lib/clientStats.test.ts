@@ -54,3 +54,28 @@ describe("bookedTotalsByYear", () => {
     ]);
   });
 });
+
+describe("parseGigDefaults", () => {
+  it("reads saved terms and ignores junk", async () => {
+    const { parseGigDefaults } = await import("./clients");
+    expect(parseGigDefaults(null)).toBeNull();
+    const d = parseGigDefaults({
+      venue: { address: "First Church, Corvallis, OR", lat: "44.5", lng: -123.2, name: "First Church" },
+      gigType: "flat_fee",
+      flatFee: "400.00",
+      paysMileage: true,
+      reimbType: "per_mile",
+      reimbRatePerMile: 0.5,
+      stayingOvernight: false,
+    })!;
+    expect(d.venue).toEqual({ address: "First Church, Corvallis, OR", lat: 44.5, lng: -123.2, name: "First Church" });
+    expect([d.gigType, d.flatFee, d.feePerService, d.paysMileage, d.reimbType]).toEqual([
+      "flat_fee",
+      400,
+      null,
+      true,
+      "per_mile",
+    ]);
+    expect(parseGigDefaults({ venue: { address: "" } })!.venue).toBeNull();
+  });
+});

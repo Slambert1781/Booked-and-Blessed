@@ -45,11 +45,18 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
 
 ## A gig
 
-- Optional client, and an optional name (a copy must get its own, different
-  name)
+- **Client first, and required**: a type-ahead search of the client
+  directory at the top of the form. Picking a client fills in their usual
+  venue, pay type and fee, mileage terms and lodging terms (from
+  `clients.gig_defaults`, updated each time a gig for them is saved), all
+  editable. A name not in the directory offers "Add '[name]' as a new
+  client" with a one-tap tier picker (New Face to start); the client is
+  created when the gig is saved (or reused if one has that name).
+- An optional gig name (a copy must get its own, different name)
 - How you're paid: **per service** (fee × number of services) or **one fee**
   for the whole gig. Stored as `gig_type` `orchestra` / `flat_fee`.
-- Venue address; one-way miles and minutes from Google Routes, or typed in
+- Venue address (required); one-way miles and minutes from Google Routes, or
+  typed in
 - Services: each is a rehearsal or a performance, with a date, an optional
   start time (calendar only) and a length in hours
 - Extras: union gig (with pension %), mileage reimbursement (per mile or
@@ -178,7 +185,8 @@ Every user table has `user_id` → `auth.users` and owner-only RLS policies.
   driving_rate_used, meal_rates_used (jsonb).
 - **gig_services**: gig_id, kind (rehearsal | performance), service_date,
   start_time, duration_hours.
-- **clients**: name, kind, tier, notes.
+- **clients**: name, kind, tier, notes, gig_defaults (jsonb: venue and
+  terms from the client's most recent gig).
 - **gas_price_cache**: shared EIA prices (read by signed-in users, written by
   the server with the service-role key), refreshed at most once a day.
 - Storage bucket **avatars**: one folder per user.

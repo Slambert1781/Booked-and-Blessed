@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { AddressInput, type AddressValue } from "@/components/AddressInput";
-import { ClientPicker } from "@/components/ClientPicker";
+import { ClientTypeahead, type ClientChoice } from "@/components/ClientTypeahead";
 import { DecisionPicker } from "@/components/DecisionPicker";
 import { ResultBreakdown } from "@/components/ResultBreakdown";
 import { calculateGig, type CalcGig, type CalcProfile } from "@/lib/calculateGig";
@@ -20,6 +20,7 @@ export type GigFormMode = { kind: "new" } | { kind: "copy" } | { kind: "edit"; g
 
 /** Fields that can be flagged as missing. */
 type Field =
+  | "client"
   | "title"
   | "fee"
   | "venue"
@@ -33,6 +34,7 @@ type Field =
   | "foodStipend";
 
 const FIELD_LABEL: Record<Field, string> = {
+  client: "Client",
   title: "Gig name",
   fee: "Fee",
   venue: "Venue",
@@ -85,9 +87,17 @@ export function GigForm({
   const todaysGas: GasSource = gas ? { areaName: gas.areaName, periodDate: gas.periodDate, kind: gas.kind } : null;
 
   const [title, setTitle] = useState(initial?.title ?? "");
-  const [client, setClient] = useState<ClientSummary | null>(
-    clients.find((c) => c.id === initial?.clientId) ?? null,
-  );
+  const [clientChoice, setClientChoice] = useState<ClientChoice | null>(() => {
+    const c = clients.find((x) => x.id === initial?.clientId);
+    return c ? { kind: "existing", client: c } : null;
+  });
+  // The client the verdict is judged for (a new one counts at the tier picked for it).
+  const client =
+    clientChoice?.kind === "existing"
+      ? clientChoice.client
+      : clientChoice?.kind === "new"
+        ? { name: clientChoice.name, tier: clientChoice.tier }
+        : null;
   // "orchestra" = paid per service, "flat_fee" = one fee for the whole gig.
   const [gigType, setGigType] = useState<"orchestra" | "flat_fee">(initial?.gigType ?? "orchestra");
   const [venue, setVenue] = useState<AddressValue>(initial?.venue ?? { address: "", lat: null, lng: null, state: null });
@@ -169,6 +179,31 @@ export function GigForm({
     setDistanceIsManual(false);
     setDriveRoute({ from: r.from, to: r.to });
     setDriveStatus("found");
+  }
+
+  // Picking a client on a new gig fills in their usual venue and terms (all still editable).
+  function chooseClient(choice: ClientChoice | null) {
+    setClientChoice(choice);
+    const d = choice?.kind === "existing" ? choice.client.gigDefaults : null;
+    if (mode.kind !== "new" || !d) return;
+    const str = (n: number | null) => (n === null ? "" : String(n));
+    setGigType(d.gigType);
+    setFeePerService(str(d.feePerService));
+    setFlatFee(str(d.flatFee));
+    setPaysMileage(d.paysMileage);
+    if (d.reimbType) setReimbType(d.reimbType);
+    setReimbRatePerMile(str(d.reimbRatePerMile));
+    setFlatReimbAmount(str(d.flatReimbAmount));
+    setStayingOvernight(d.stayingOvernight);
+    setHosted(d.hosted);
+    setRoomCostPerNight(str(d.roomCostPerNight));
+    setStipendPerNight(str(d.stipendPerNight));
+    if (d.venue) {
+      const v = { address: d.venue.address, lat: d.venue.lat, lng: d.venue.lng, state: null, name: d.venue.name };
+      changeVenue(v);
+      // A venue without coordinates isn't looked up automatically, so do it here.
+      if (v.lat === null || v.lng === null) runLookup(v);
+    }
   }
 
   // When the venue changes, miles looked up for the old venue no longer apply.
@@ -285,6 +320,7 @@ export function GigForm({
   // What's missing, recomputed as you type once you've tried to save.
   function findMissing(): Field[] {
     const missing: Field[] = [];
+    if (!clientChoice) missing.push("client");
     const t = title.trim();
     if (mode.kind === "copy" && (!t || t.toLowerCase() === (copiedFromTitle ?? "").trim().toLowerCase()))
       missing.push("title");
@@ -319,7 +355,8 @@ export function GigForm({
     startTransition(async () => {
       const input = {
         title,
-        clientId: client?.id ?? null,
+        clientId: clientChoice?.kind === "existing" ? clientChoice.client.id : null,
+        newClient: clientChoice?.kind === "new" ? { name: clientChoice.name, tier: clientChoice.tier } : null,
         gigType,
         venue: { address: venue.address, lat: venue.lat, lng: venue.lng },
         feePerService,
@@ -371,6 +408,8 @@ export function GigForm({
 
   return (
     <form onSubmit={submit} className="mt-6 space-y-8" noValidate>
+      <ClientTypeahead clients={clients} value={clientChoice} onChange={chooseClient} invalid={bad("client")} />
+
       {mode.kind !== "edit" && (
         <div>
           <Toggle label="Already played" checked={alreadyPlayed} onChange={setAlreadyPlayed} />
@@ -399,8 +438,6 @@ export function GigForm({
               : undefined
           }
         />
-
-        <ClientPicker clients={clients} value={client?.id ?? null} onChange={setClient} />
 
         <div>
           <span className="block text-sm font-medium">How are you paid?</span>

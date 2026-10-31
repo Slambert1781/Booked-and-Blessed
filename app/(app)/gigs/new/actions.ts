@@ -7,11 +7,13 @@ import { withState } from "@/lib/google/places";
 import { oneWayDrive } from "@/lib/google/routes";
 import { getProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
+import type { ClientGigDefaults } from "@/lib/clients";
 import { GIG_STATUSES, type GigStatus, type ServiceKind } from "@/lib/gigs";
+import { isTier, type Tier } from "@/lib/relationships";
 import { defaultMeals, mealRatesFromProfile, parseMealRates, type MealChoice } from "@/lib/meals";
 import { isProfileComplete, num } from "@/lib/types";
 
-type Place = { address: string; lat: number | null; lng: number | null };
+type Place = { address: string; lat: number | null; lng: number | null; name?: string | null };
 
 export async function lookupDrive(
   venue: Place,
@@ -43,6 +45,8 @@ export async function gasPriceForDate(date: string): Promise<GasPrice | { error:
 export type GigInput = {
   title: string;
   clientId: string | null;
+  /** A client typed on the form that isn't in the directory yet: created on save. */
+  newClient: { name: string; tier: Tier } | null;
   gigType: "orchestra" | "flat_fee";
   venue: Place;
   feePerService: string;
@@ -116,6 +120,7 @@ function validate(
   const minutes = amount(input.oneWayMinutes);
   const gas = amount(input.gasPrice);
 
+  if (!input.clientId && !input.newClient?.name.trim()) return { error: "Choose who the gig is for." };
   if (!input.venue.address.trim()) return { error: "Enter where the gig is." };
   if (services.length === 0) return { error: "Add the date of at least one service." };
   if (input.gigType === "orchestra" && (fee === null || Number.isNaN(fee)))
@@ -213,6 +218,46 @@ const serviceRows = (userId: string, gigId: string, services: SavedService[]) =>
     duration_hours: s.hours,
   }));
 
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+/** The client id to save the gig under, creating a new client if one was typed in. */
+async function resolveClient(supabase: Supabase, input: GigInput): Promise<string | { error: string }> {
+  if (input.clientId) return input.clientId;
+  const name = input.newClient!.name.trim();
+  const tier = isTier(input.newClient!.tier) ? input.newClient!.tier : "new_face";
+  // Reuse a client of the same name rather than making a duplicate.
+  const { data: same } = await supabase.from("clients").select("id").ilike("name", name).limit(1);
+  if (same?.[0]) return same[0].id as string;
+  const { data, error } = await supabase.from("clients").insert({ name, tier, kind: "other" }).select("id").single();
+  if (error || !data) return { error: "Couldn't add the new client. Please try again." };
+  return data.id as string;
+}
+
+/** Remember this gig's venue and terms on its client, to fill in next time. */
+async function rememberTerms(supabase: Supabase, clientId: string, input: GigInput, fields: GigRowFields) {
+  const gigDefaults: ClientGigDefaults = {
+    venue: {
+      address: input.venue.address.trim(),
+      lat: input.venue.lat,
+      lng: input.venue.lng,
+      name: input.venue.name?.trim() || null,
+    },
+    gigType: input.gigType,
+    feePerService: fields.fee_per_service as number | null,
+    flatFee: fields.flat_fee as number | null,
+    paysMileage: input.paysMileage,
+    reimbType: (fields.reimb_type as "per_mile" | "flat" | null) ?? null,
+    reimbRatePerMile: fields.reimb_rate_per_mile as number | null,
+    flatReimbAmount: fields.flat_reimb_amount as number | null,
+    stayingOvernight: input.stayingOvernight,
+    hosted: fields.hosted as boolean,
+    roomCostPerNight: fields.room_cost_per_night as number | null,
+    stipendPerNight: fields.stipend_per_night as number | null,
+  };
+  // Best effort: the gig is saved either way.
+  await supabase.from("clients").update({ gig_defaults: gigDefaults }).eq("id", clientId);
+}
+
 export async function createGig(input: GigInput): Promise<{ error: string } | void> {
   const result = await getProfile();
   if (!result) redirect("/sign-in");
@@ -223,10 +268,14 @@ export async function createGig(input: GigInput): Promise<{ error: string } | vo
   if ("error" in v) return v;
 
   const supabase = await createClient();
+  const clientId = await resolveClient(supabase, input);
+  if (typeof clientId !== "string") return clientId;
+
   const { data: gig, error } = await supabase
     .from("gigs")
     .insert({
       ...v.fields,
+      client_id: clientId,
       user_id: result.userId,
       // The profile values this gig is worked out with, frozen.
       mpg_used: num(profile!.mpg),
@@ -245,6 +294,8 @@ export async function createGig(input: GigInput): Promise<{ error: string } | vo
     return { error: "Couldn't save the service dates. Please try again." };
   }
 
+  await rememberTerms(supabase, clientId, input, v.fields);
+  revalidatePath("/", "layout");
   redirect(`/?saved=${gig.id}`);
 }
 
@@ -267,6 +318,9 @@ export async function updateGig(id: string, input: GigInput): Promise<{ error: s
     .maybeSingle();
   if (!existing) return { error: "That gig no longer exists." };
 
+  const clientId = await resolveClient(supabase, input);
+  if (typeof clientId !== "string") return clientId;
+
   const decidedAt =
     v.status === "undecided" ? null : v.status === existing.status ? existing.decided_at : new Date().toISOString();
 
@@ -278,7 +332,7 @@ export async function updateGig(id: string, input: GigInput): Promise<{ error: s
 
   const { error } = await supabase
     .from("gigs")
-    .update({ ...v.fields, ...mealRates, decided_at: decidedAt })
+    .update({ ...v.fields, ...mealRates, client_id: clientId, decided_at: decidedAt })
     .eq("id", id);
   if (error) return { error: "Couldn't save your changes. Please try again." };
 
@@ -290,6 +344,7 @@ export async function updateGig(id: string, input: GigInput): Promise<{ error: s
   const oldIds = (old ?? []).map((r) => r.id);
   if (oldIds.length) await supabase.from("gig_services").delete().in("id", oldIds);
 
+  await rememberTerms(supabase, clientId, input, v.fields);
   revalidatePath("/", "layout");
   redirect(`/gigs/${id}?updated=1`);
 }
