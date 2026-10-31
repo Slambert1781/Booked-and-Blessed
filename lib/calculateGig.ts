@@ -92,10 +92,15 @@ export type GigResult = {
   /** The meals counted each day. */
   meals: MealChoice;
   foodStipend: number;
-  /** Take-home before the tax set-aside. */
+  /** Cash take-home before the tax set-aside. */
   takeHomeBeforeTax: number;
-  /** What you keep: after travel, lodging, food, drive time and the tax set-aside. */
+  /**
+   * "Your real take-home": the cash you keep, after gas, lodging, food and the
+   * tax set-aside. Your time is weighed against this separately (the verdict).
+   */
   realTakeHome: number;
+  /** The rate the gig's playing time is valued at in the profile (for time value). */
+  playingRate: number;
 
   /** Hours spent playing (sum of service lengths). */
   playingHours: number;
@@ -173,7 +178,7 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
       : gig.foodStipend.amount;
 
   const takeHomeBeforeTax =
-    totalPay + mileageReimbursement + lodgingStipend + foodStipend - gasCost - lodgingCost - foodCost - driveTimeCost;
+    totalPay + mileageReimbursement + lodgingStipend + foodStipend - gasCost - lodgingCost - foodCost;
 
   const playingHours = (gig.serviceHours ?? []).reduce<number>((sum, h) => sum + (h ?? 0), 0);
   const totalHours = playingHours + (countDrive ? totalDriveHours : 0);
@@ -207,6 +212,7 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
     foodStipend,
     takeHomeBeforeTax,
     realTakeHome,
+    playingRate: profile.playingRate,
     playingHours,
     totalHours,
     netCash,

@@ -37,7 +37,7 @@ describe("calculateGig", () => {
     expect(r.totalDriveHours).toBe(8);
     expect(r.gasCost).toBeCloseTo(48); // 400 / 25 * 3
     expect(r.driveTimeCost).toBe(400); // 8h * $50
-    expect(r.realTakeHome).toBeCloseTo(750 - 48 - 400);
+    expect(r.realTakeHome).toBeCloseTo(750 - 48);
   });
 
   it("flat-fee gig: pays the flat fee", () => {
@@ -47,7 +47,7 @@ describe("calculateGig", () => {
     expect(r.totalMiles).toBe(100);
     expect(r.gasCost).toBeCloseTo(12);
     expect(r.driveTimeCost).toBe(100);
-    expect(r.realTakeHome).toBeCloseTo(288);
+    expect(r.realTakeHome).toBeCloseTo(388);
   });
 
   it("ignores the other gig type's fee fields", () => {
@@ -66,7 +66,7 @@ describe("calculateGig", () => {
     expect(r.totalMiles).toBe(100);
     expect(r.lodgingCost).toBe(360);
     expect(r.lodgingStipend).toBe(120);
-    expect(r.realTakeHome).toBeCloseTo(750 + 120 - 12 - 360 - 100);
+    expect(r.realTakeHome).toBeCloseTo(750 + 120 - 12 - 360);
   });
 
   it("staying overnight for a single-day gig counts one night", () => {
@@ -98,7 +98,7 @@ describe("calculateGig", () => {
       lookups,
     );
     expect(r.mileageReimbursement).toBeCloseTo(200); // 400 miles * $0.50
-    expect(r.realTakeHome).toBeCloseTo(750 + 200 - 48 - 400);
+    expect(r.realTakeHome).toBeCloseTo(750 + 200 - 48);
   });
 
   it("flat reimbursement uses the flat amount", () => {
@@ -179,8 +179,8 @@ describe("calculateGig: hourly rate, tax and union", () => {
   it("tax set-aside is a % of the pay and comes out of take-home", () => {
     const r = calculateGig({ ...profile, taxRatePct: 25 }, withHours, lookups);
     expect(r.taxSetAside).toBe(100);
-    expect(r.takeHomeBeforeTax).toBeCloseTo(288);
-    expect(r.realTakeHome).toBeCloseTo(188);
+    expect(r.takeHomeBeforeTax).toBeCloseTo(388);
+    expect(r.realTakeHome).toBeCloseTo(288);
   });
 
   it("tax doesn't change the hourly rate (rates are quoted before tax)", () => {
@@ -209,7 +209,7 @@ describe("calculateGig: hourly rate, tax and union", () => {
   it("union pension is a % of pay, only on union gigs, and not part of take-home", () => {
     const union = calculateGig(profile, { ...orchestra, isUnion: true, pensionPct: 10 }, lookups);
     expect(union.pensionContribution).toBe(75);
-    expect(union.realTakeHome).toBeCloseTo(750 - 48 - 400);
+    expect(union.realTakeHome).toBeCloseTo(750 - 48);
     expect(calculateGig(profile, { ...orchestra, isUnion: false, pensionPct: 10 }, lookups).pensionContribution).toBe(0);
   });
 });
@@ -221,7 +221,7 @@ describe("calculateGig: food", () => {
   it("eating out off: no food cost", () => {
     const r = calculateGig(eater, { ...orchestra, eatingOut: false }, lookups);
     expect(r.foodCost).toBe(0);
-    expect(r.realTakeHome).toBeCloseTo(750 - 48 - 400);
+    expect(r.realTakeHome).toBeCloseTo(750 - 48);
   });
 
   it("local gig across multiple service days: chosen meals for each service day", () => {
@@ -231,7 +231,7 @@ describe("calculateGig: food", () => {
     expect(r.foodDays).toBe(4);
     expect(r.foodRate).toBe(47);
     expect(r.foodCost).toBe(188);
-    expect(r.realTakeHome).toBeCloseTo(750 - 48 - 188 - 400);
+    expect(r.realTakeHome).toBeCloseTo(750 - 48 - 188);
   });
 
   it("a local gig starts with dinner only", () => {
@@ -246,7 +246,7 @@ describe("calculateGig: food", () => {
     expect(r.nights).toBe(3);
     expect(r.meals).toEqual(allMeals);
     expect(r.foodCost).toBe(272); // 4 x $68
-    expect(r.realTakeHome).toBeCloseTo(750 - 12 - 360 - 272 - 100);
+    expect(r.realTakeHome).toBeCloseTo(750 - 12 - 360 - 272);
   });
 
   it("overnight food follows a hand-set number of nights", () => {
@@ -278,7 +278,7 @@ describe("calculateGig: food stipend", () => {
       lookups,
     );
     expect(r.foodStipend).toBe(200); // 4 days
-    expect(r.realTakeHome).toBeCloseTo(750 + 200 - 12 - 272 - 100);
+    expect(r.realTakeHome).toBeCloseTo(750 + 200 - 12 - 272);
   });
 
   it("flat amount is paid once", () => {
@@ -355,7 +355,7 @@ describe("calculateGig: actual figures after the gig", () => {
     expect(r.lodgingCost).toBe(120);
     expect(r.taxSetAside).toBeCloseTo(112.5); // tax follows the actual pay
     expect(r.actual).toEqual({ pay: true, gas: true, food: true, lodging: true });
-    expect(r.realTakeHome).toBeCloseTo(450 - 41 - 30 - 120 - 100 - 112.5);
+    expect(r.realTakeHome).toBeCloseTo(450 - 41 - 30 - 120 - 112.5);
   });
 
   it("blank actuals keep the estimate", () => {
@@ -375,5 +375,14 @@ describe("calculateGig: actual figures after the gig", () => {
   it("actual figures feed the hourly rate", () => {
     const r = calculateGig(eater, { ...wedding, serviceHours: [2], actuals: { pay: 500, gas: 12 } }, lookups);
     expect(r.netCash).toBeCloseTo(500 - 12 - 28);
+  });
+});
+
+describe("calculateGig: cash take-home", () => {
+  it("drive time is valued, but not taken out of the cash take-home", () => {
+    const r = calculateGig(profile, orchestra, lookups);
+    expect(r.driveTimeCost).toBe(400); // reported, for weighing your time
+    expect(r.realTakeHome).toBeCloseTo(750 - 48);
+    expect(r.playingRate).toBe(50);
   });
 });

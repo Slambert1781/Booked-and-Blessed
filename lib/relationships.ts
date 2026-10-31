@@ -1,7 +1,7 @@
 // Relationship tiers, Holiday Rush and the green / yellow / red verdict.
 // Pure functions only, so the rules are easy to test and reuse.
 
-import { formatMoney } from "@/lib/format";
+import { formatHours, formatMoney } from "@/lib/format";
 
 export type Tier = "new_face" | "familiar" | "faithful" | "favored" | "highly_favored";
 
@@ -89,17 +89,21 @@ export function rushFor(dates: string[], periods: RushPeriod[], enabled: boolean
 
 export type Verdict = "green" | "yellow" | "red";
 
-/** Yellow covers hourly rates up to this fraction below your minimum. */
+/** Yellow covers a take-home up to this fraction short of what your time is worth. */
 export const YELLOW_BAND = 0.15;
 
 export type VerdictInput = {
-  /** Money after gas, lodging and food, before valuing drive time. */
-  netCash: number;
-  /** Union pension paid on your behalf; counts toward the verdict. */
-  pension: number;
-  /** Playing plus driving hours; 0 when service lengths are unknown. */
-  totalHours: number;
-  /** Your base minimum from the profile; null = no minimum set. */
+  /** "Your real take-home": cash after gas, lodging, food and the tax set-aside. */
+  cashTakeHome: number;
+  /** Hours of rehearsing and performing; 0 when service lengths are unknown. */
+  playingHours: number;
+  /** Hours of driving that count (0 when the gig's drive time is switched off). */
+  drivingHours: number;
+  /** What an hour behind the wheel is worth (driving rate, else playing rate). */
+  drivingRate: number;
+  /** The playing rate: stands in for the minimum when none is set. */
+  playingRate: number;
+  /** Your minimum hourly rate from the profile; null = use the playing rate. */
   minHourlyRate: number | null;
   /** Null when the gig has no client: treated as a New Face. */
   client: { name: string; tier: Tier } | null;
@@ -114,64 +118,80 @@ export function rushTier(tier: Tier): Tier {
 
 export type VerdictResult = {
   verdict: Verdict;
-  /** Hourly rate used for the verdict (includes any union pension). */
-  hourly: number | null;
-  /** Your minimum for this gig after the tier discount (and any rush). */
-  effectiveMin: number | null;
+  /** Your minimum for playing on this gig, after the tier discount (and any rush). */
+  effectiveMin: number;
   /** Discount actually applied, in %. */
   discountPct: number;
+  /** What your time on the gig is worth: playing at your minimum plus driving. */
+  timeValue: number;
+  playingValue: number;
+  drivingValue: number;
+  /** Take-home minus time value: positive means the gig pays more than your time is worth. */
+  gap: number;
   /** One or two plain sentences explaining the colour. */
   explanation: string;
 };
 
-const colourFor = (hourly: number, min: number): Verdict =>
-  hourly >= min ? "green" : hourly >= min * (1 - YELLOW_BAND) ? "yellow" : "red";
+const colourFor = (gap: number, timeValue: number): Verdict =>
+  gap >= 0 ? "green" : -gap <= timeValue * YELLOW_BAND ? "yellow" : "red";
 
 const Cap = (v: Verdict) => v[0].toUpperCase() + v.slice(1);
 
 /**
- * Green / yellow / red for a gig, or null when there's nothing to judge
- * (no minimum set, or no service lengths) and the gig doesn't lose money.
+ * Green / yellow / red: does the cash you take home cover what your time is
+ * worth? Time value = playing hours at your minimum for this client (after
+ * the tier discount and any Holiday Rush) + counted driving hours at your
+ * driving rate. Hard floor: a take-home of $0 or less is red whatever the
+ * tier. Null when the service lengths are unknown (nothing to weigh).
  */
 export function judgeGig(i: VerdictInput): VerdictResult | null {
   const tier: Tier = i.client?.tier ?? "new_face";
   const baseDiscount = i.discounts[tier];
   const appliedTier = i.rush ? rushTier(tier) : tier;
   const discountPct = i.discounts[appliedTier];
-  const hourly = i.totalHours > 0 ? (i.netCash + i.pension) / i.totalHours : null;
+  const baseMin = i.minHourlyRate ?? i.playingRate;
+  const effectiveMin = baseMin * (1 - discountPct / 100);
+  const playingValue = i.playingHours * effectiveMin;
+  const drivingValue = i.drivingHours * i.drivingRate;
+  const timeValue = playingValue + drivingValue;
+  const gap = i.cashTakeHome - timeValue;
+  const base = { effectiveMin, discountPct, timeValue, playingValue, drivingValue, gap };
 
   // Hard floor: losing money is red whatever the relationship.
-  if (i.netCash <= 0) {
+  if (i.cashTakeHome <= 0) {
     return {
+      ...base,
       verdict: "red",
-      hourly,
-      effectiveMin: i.minHourlyRate === null ? null : i.minHourlyRate * (1 - discountPct / 100),
-      discountPct,
-      explanation: `Red: this gig loses ${formatMoney(-i.netCash)} after gas, lodging and food. No relationship tier makes paying to play worth it.`,
+      explanation: `Red: you'd ${i.cashTakeHome < 0 ? `lose ${formatMoney(-i.cashTakeHome)}` : "take home nothing"} after gas, lodging, food and taxes. No relationship tier makes paying to play worth it.`,
     };
   }
-  if (hourly === null || i.minHourlyRate === null) return null;
+  if (i.playingHours <= 0) return null;
 
-  const effectiveMin = i.minHourlyRate * (1 - discountPct / 100);
-  const verdict = colourFor(hourly, effectiveMin);
-
+  const verdict = colourFor(gap, timeValue);
   const who = i.client ? i.client.name : "a client you haven't linked";
-  const compare = verdict === "green" ? "above" : "below";
-  let explanation =
+  const minNote =
     discountPct > 0
-      ? `${Cap(verdict)}: ${formatMoney(hourly)}/hr is ${compare} ${formatMoney(effectiveMin)}/hr, your minimum for ${who} (${TIER_LABEL[appliedTier]}, ${round(discountPct)}% off ${formatMoney(i.minHourlyRate)}).`
-      : `${Cap(verdict)}: ${formatMoney(hourly)}/hr is ${compare} your ${formatMoney(i.minHourlyRate)}/hr minimum${i.client ? ` (${i.client.name} is a ${TIER_LABEL[tier]}, so no discount)` : ""}.`;
+      ? `${formatMoney(effectiveMin)}/hr, your minimum for ${who} (${TIER_LABEL[appliedTier]}, ${round(discountPct)}% off ${formatMoney(baseMin)})`
+      : `${formatMoney(effectiveMin)}/hr, your ${i.minHourlyRate === null ? "playing rate" : "minimum"}`;
+  const timeNote =
+    `${formatHours(i.playingHours)} playing at ${minNote}` +
+    (i.drivingHours > 0 ? `, plus ${formatHours(i.drivingHours)} driving at ${formatMoney(i.drivingRate)}/hr` : "");
+
+  let explanation =
+    gap >= 0
+      ? `${Cap(verdict)}: you take home ${formatMoney(gap)} more than your time is worth (${formatMoney(timeValue)}: ${timeNote}).`
+      : `${Cap(verdict)}: you take home ${formatMoney(-gap)} less than your time is worth (${formatMoney(timeValue)}: ${timeNote}).`;
 
   if (i.rush && appliedTier !== tier) {
     explanation += ` Holiday Rush (${i.rush.label}): ${i.client?.name ?? "this client"} counts as ${TIER_LABEL[appliedTier]} instead of ${TIER_LABEL[tier]}, so ${round(discountPct)}% off instead of ${round(baseDiscount)}%.`;
   }
   if (tier !== "new_face") {
-    const asNewFace = colourFor(hourly, i.minHourlyRate);
+    const newFaceValue = i.playingHours * baseMin + drivingValue;
+    const asNewFace = colourFor(i.cashTakeHome - newFaceValue, newFaceValue);
     if (asNewFace !== verdict) explanation += ` For a New Face this would be ${asNewFace}.`;
   }
-  if (i.pension > 0) explanation += ` Includes the ${formatMoney(i.pension)} union pension.`;
 
-  return { verdict, hourly, effectiveMin, discountPct, explanation };
+  return { ...base, verdict, explanation };
 }
 
 const round = (n: number) => Math.round(n * 10) / 10;

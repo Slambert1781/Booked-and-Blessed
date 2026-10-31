@@ -106,6 +106,7 @@ total_drive_hrs  = one_way_minutes * 2 / 60 * round_trips
 
 gas_cost         = actual_gas ?? (total_miles / mpg) * gas_price_per_gallon
 drive_time_cost  = count_drive_time ? total_drive_hrs * (driving_rate ?? playing_rate) : 0
+                   (part of time_value below; not taken out of the cash take-home)
 
 mileage_reimb    = !pays_mileage ? 0
                  : per_mile ? reimb_rate_per_mile * total_miles
@@ -120,10 +121,11 @@ food_stipend     = !pays_food_stipend ? 0
                  : per_day ? food_stipend_amount * days_away
                  : food_stipend_amount
 
-take_home_before_tax = total_pay + mileage_reimb + lodging_stipend + food_stipend
-                       - gas_cost - lodging_cost - food_cost - drive_time_cost
-tax_set_aside        = total_pay * tax_rate_pct / 100
-real_take_home       = take_home_before_tax - tax_set_aside
+tax_set_aside    = total_pay * tax_rate_pct / 100
+cash_take_home   = total_pay + mileage_reimb + lodging_stipend + food_stipend
+                   - gas_cost - lodging_cost - food_cost - tax_set_aside
+                   ("Your real take-home", the hero number; drive time is not cash,
+                   so it is weighed in the verdict instead)
 
 playing_hours    = sum of the services' lengths
 net_cash         = total_pay + mileage_reimb + lodging_stipend + food_stipend
@@ -133,7 +135,7 @@ real_hourly_rate = playing_hours > 0 ? net_cash / counted_hours : none
 pension          = union ? total_pay * pension_pct / 100 : 0   (shown separately, not take-home)
 ```
 
-- The hourly rate and verdict are before tax (rates are quoted before tax).
+- The real hourly rate is shown for information only, before tax.
 - Each saved gig stores the lookups and profile values it was worked out with
   (miles, minutes, gas price and its source/date, MPG, playing and driving
   rates, meal prices), so its result never changes when gas prices or the
@@ -147,18 +149,33 @@ pension          = union ? total_pay * pension_pct / 100 : 0   (shown separately
   Favored 40% off the minimum hourly rate (editable in the profile).
 - Holiday Rush (default Oct 1 to Dec 31, editable, repeats yearly): during a
   rush every client counts as one tier lower.
-- Verdict, using net_cash plus any union pension per hour:
-  green at or above the client's minimum; yellow within 15% below it;
-  red further below, or whenever net_cash ≤ 0 (the hard floor: loyalty never
-  means paying to play). The app explains each verdict in plain English.
+- Verdict: does the cash take-home cover what your time is worth?
+  ```
+  minimum_rate_for_this_client = (min_hourly_rate ?? playing_rate)
+                                 * (1 - tier_discount_after_holiday_rush / 100)
+  time_value  = playing_hours * minimum_rate_for_this_client
+              + (count_drive_time ? total_drive_hrs : 0) * (driving_rate ?? playing_rate)
+  verdict_gap = cash_take_home - time_value
+  green  if verdict_gap >= 0
+  yellow if verdict_gap < 0 and -verdict_gap <= 15% of time_value
+  red    otherwise
+  ```
+  Hard floor: if cash_take_home <= 0 the verdict is red whatever the tier
+  (loyalty never means paying to play). With no service lengths there is no
+  verdict (apart from the hard floor). The union pension is shown but does
+  not enter the verdict. The app explains each verdict in plain English,
+  including what it would be for a New Face and any Holiday Rush effect.
 - Each client page shows what booked gigs were worth per year.
 
 ## Result screen
 
-Take-home shown largest (after tax). Then the real hourly rate with its
-verdict and explanation, and a breakdown in this order: total pay, mileage
-reimbursement, food stipend, lodging stipend, gas, lodging, **food** (days ×
-daily cost, with the meals listed), drive time, taxes.
+"Your real take-home" (cash, after tax) shown largest. Then the verdict
+with its explanation and a "your time" table (playing hours × your minimum
+for the client, driving hours × driving rate or "not counted", what your
+time is worth, the take-home and the difference), with the real hourly rate
+underneath for information. Then the money breakdown in this order: total
+pay, mileage reimbursement, food stipend, lodging stipend, gas, lodging,
+**food** (days × daily cost, with the meals listed), taxes.
 Union pension appears separately. Then round trips, total miles and drive
 time.
 

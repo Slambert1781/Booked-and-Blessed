@@ -19,7 +19,6 @@ export function ResultBreakdown({
   pensionPct?: number | null;
 }) {
   const r = result;
-  const hourly = r.totalDriveHours > 0 ? r.driveTimeRate : null;
   return (
     <div className="space-y-4">
       <div className="rounded-2xl bg-indigo-700 px-5 py-6 text-white">
@@ -69,20 +68,6 @@ export function ResultBreakdown({
             value={`− ${formatMoney(r.foodCost)}`}
             negative
             actual={r.actual.food}
-          />
-        )}
-        {r.driveTimeCounted ? (
-          <Row
-            label="Your drive time"
-            detail={hourly !== null ? `${formatHours(r.totalDriveHours)} at ${formatMoney(hourly)}/hr` : undefined}
-            value={`− ${formatMoney(r.driveTimeCost)}`}
-            negative
-          />
-        ) : (
-          <Row
-            label="Your drive time"
-            detail={`${formatHours(r.totalDriveHours)} of driving, switched off for this gig`}
-            value="Not counted"
           />
         )}
         {r.taxSetAside > 0 && (
@@ -174,36 +159,55 @@ function HourlyRate({ result: r, verdict }: { result: GigResult; verdict: Verdic
   const style = verdict ? VERDICT_STYLE[verdict.verdict] : null;
   return (
     <div className={`rounded-2xl border px-4 py-3 shadow-sm ${style ? style.box : "border-transparent bg-white"}`}>
-      {r.realHourlyRate !== null ? (
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p>
-            <span className="text-2xl font-bold tabular-nums">{formatMoney(r.realHourlyRate)}</span>
-            <span className="text-stone-600">/hr real</span>
-          </p>
-          {style && <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${style.chip}`}>{style.label}</span>}
-        </div>
-      ) : (
-        style && <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${style.chip}`}>{style.label}</span>
-      )}
+      {style && <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${style.chip}`}>{style.label}</span>}
       {verdict && <p className="mt-2 text-sm text-stone-800">{verdict.explanation}</p>}
-      {r.realHourlyRate !== null ? (
-        <p className="mt-1 text-xs text-stone-500">
+
+      {verdict && r.playingHours > 0 && (
+        <dl className="mt-3 space-y-1 border-t border-black/10 pt-3 text-sm tabular-nums">
+          <TimeRow
+            label={`Playing: ${formatHours(r.playingHours)} × ${formatMoney(verdict.effectiveMin)}`}
+            value={formatMoney(verdict.playingValue)}
+          />
           {r.driveTimeCounted ? (
-            <>
-              Over {formatHours(r.totalHours)}: {formatHours(r.playingHours)} playing + {formatHours(r.totalDriveHours)}{" "}
-              driving, after gas, lodging and food.
-            </>
+            <TimeRow
+              label={`Driving: ${formatHours(r.totalDriveHours)} × ${formatMoney(r.driveTimeRate)}`}
+              value={formatMoney(verdict.drivingValue)}
+            />
           ) : (
-            <>
-              Over {formatHours(r.playingHours)} of playing (drive time not counted), after gas, lodging and food.
-            </>
+            <TimeRow label={`Driving: ${formatHours(r.totalDriveHours)}, not counted for this gig`} value="—" />
           )}
+          <TimeRow label="Your time is worth" value={formatMoney(verdict.timeValue)} strong />
+          <TimeRow label="Your real take-home" value={formatMoney(r.realTakeHome)} />
+          <TimeRow
+            label="Difference"
+            value={`${verdict.gap >= 0 ? "+" : "−"} ${formatMoney(Math.abs(verdict.gap))}`}
+            strong
+          />
+        </dl>
+      )}
+
+      {r.realHourlyRate !== null ? (
+        <p className="mt-3 text-xs text-stone-500">
+          Real hourly rate: <strong className="text-stone-700">{formatMoney(r.realHourlyRate)}/hr</strong>
+          {r.driveTimeCounted
+            ? ` over ${formatHours(r.totalHours)} (${formatHours(r.playingHours)} playing + ${formatHours(r.totalDriveHours)} driving)`
+            : ` over ${formatHours(r.playingHours)} of playing (drive time not counted)`}
+          , after gas, lodging and food, before tax.
         </p>
       ) : (
         <p className="mt-1 text-sm text-stone-500">
           Add how many hours each service lasts to see your real hourly rate.
         </p>
       )}
+    </div>
+  );
+}
+
+function TimeRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className={`flex justify-between gap-3 ${strong ? "font-semibold" : "text-stone-700"}`}>
+      <dt className="min-w-0">{label}</dt>
+      <dd className="shrink-0">{value}</dd>
     </div>
   );
 }

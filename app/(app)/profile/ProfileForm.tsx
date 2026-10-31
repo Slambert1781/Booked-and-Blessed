@@ -304,7 +304,7 @@ export function ProfileForm({
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Relationship tiers</h2>
         <p className="text-sm text-stone-600">
-          How much each client tier lowers your minimum hourly rate. A gig that loses money after gas, lodging and food
+          How much each client tier lowers your minimum hourly rate. A gig that leaves you nothing after gas, lodging, food and taxes
           is always red, whatever the tier.
         </p>
         <div className="divide-y divide-stone-200 rounded-2xl bg-white px-4 shadow-sm">

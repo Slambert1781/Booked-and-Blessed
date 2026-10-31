@@ -113,9 +113,11 @@ export function verdictFor(
   s: RelationshipSettings,
 ): VerdictResult | null {
   return judgeGig({
-    netCash: result.netCash,
-    pension: result.pensionContribution,
-    totalHours: result.playingHours > 0 ? result.totalHours : 0,
+    cashTakeHome: result.realTakeHome,
+    playingHours: result.playingHours,
+    drivingHours: result.driveTimeCounted ? result.totalDriveHours : 0,
+    drivingRate: result.driveTimeRate,
+    playingRate: result.playingRate,
     minHourlyRate: s.minHourlyRate,
     client,
     discounts: s.discounts,

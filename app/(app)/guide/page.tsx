@@ -92,8 +92,9 @@ const SECTIONS: Section[] = [
           any lodging stipend.
         </li>
         <li>
-          <strong>Don&apos;t charge my drive time</strong>: normally the hours you spend driving are charged at your
-          driving rate. Turn this on for a gig where you don&apos;t mind the drive; gas still counts.
+          <strong>Don&apos;t charge my drive time</strong>: normally the hours you spend driving count as part of
+          your time, at your driving rate. Turn this on for a gig where you don&apos;t mind the drive; gas still
+          counts.
         </li>
         <li>
           <strong>Eating out</strong> (on unless you turn it off): tick which meals you&apos;ll buy each day.
@@ -114,32 +115,37 @@ const SECTIONS: Section[] = [
       <>
         <ul>
           <li>
-            <strong>Your real take-home</strong> (the big number): the pay plus anything they pay back, minus gas,
-            hotels, food, the value of your drive time and the taxes to set aside.
+            <strong>Your real take-home</strong> (the big number): the cash you keep. The pay plus anything they pay
+            back, minus gas, hotels, food and the taxes to set aside.
           </li>
           <li>
-            <strong>Real hourly rate</strong>: what you earn per hour of playing and driving, after gas, hotels and
-            food (before tax). It needs the <strong>hrs</strong> for each rehearsal and performance.
+            <strong>What your time is worth</strong>: your playing hours at your minimum hourly rate for this client
+            (after any relationship discount), plus your driving hours at your driving rate. It needs the{" "}
+            <strong>hrs</strong> for each rehearsal and performance.
           </li>
           <li>
-            <strong>The colour</strong>, compared with your minimum hourly rate:
+            <strong>The colour</strong> compares your take-home with what your time is worth:
             <span className="mt-1 block">
-              <Dot c="bg-emerald-500" /> <strong>Green, worth it</strong>: at or above your minimum.
+              <Dot c="bg-emerald-500" /> <strong>Green, worth it</strong>: your take-home covers your time.
             </span>
             <span className="block">
-              <Dot c="bg-amber-400" /> <strong>Yellow, a close call</strong>: up to 15% below it.
+              <Dot c="bg-amber-400" /> <strong>Yellow, a close call</strong>: short by no more than 15%.
             </span>
             <span className="block">
-              <Dot c="bg-red-500" /> <strong>Red, not worth it</strong>: further below, or the gig loses money
-              after gas, hotels and food.
+              <Dot c="bg-red-500" /> <strong>Red, not worth it</strong>: shorter than that, or you&apos;d take home
+              nothing at all.
             </span>
             The app explains each colour in a sentence underneath.
           </li>
-          <li>The breakdown lists every amount, so you can see where the money goes.</li>
+          <li>
+            The breakdown lists every amount, so you can see where the money goes. Your{" "}
+            <strong>real hourly rate</strong> is shown too, for information.
+          </li>
         </ul>
         <p className="rounded-xl bg-stone-50 p-3">
-          <strong>Example:</strong> a $400 wedding, 48 miles away. Gas $17, dinner $28, 1 hr 50 min of driving at
-          $25/hr ($46), 25% tax ($100): take-home <strong>$209</strong>.
+          <strong>Example:</strong> a $400 wedding, 48 miles away. Gas $17, dinner $28, 25% tax ($100): take-home{" "}
+          <strong>$255</strong>. Your time: 2 hr 30 min of playing at $40 ($100) plus 1 hr 50 min of driving at $25
+          ($46) is worth $146, so it&apos;s green: $109 more than your time is worth.
         </p>
       </>
     ),
@@ -237,15 +243,16 @@ const SECTIONS: Section[] = [
           </li>
         </ul>
         <p>
-          With a $40 minimum, a gig paying $26 an hour is red for a New Face but green for a Highly Favored client
-          (minimum $24).
+          With a $40 minimum, a $400 concert set that leaves you $280 for 8 hours of playing and 3 of driving is red
+          for a New Face (your time is worth $395) but green for a Highly Favored client (minimum $24, time worth
+          $267).
         </p>
         <ul>
           <li>
             <strong>Holiday Rush</strong> (Oct 1 – Dec 31 unless you change it): every client counts as one tier
             lower, because every date is precious.
           </li>
-          <li>A gig that loses money is always red, whatever the tier.</li>
+          <li>A gig that leaves you nothing after costs and taxes is always red, whatever the tier.</li>
           <li>Each client&apos;s page shows what their booked gigs were worth each year.</li>
         </ul>
       </>

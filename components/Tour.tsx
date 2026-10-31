@@ -27,13 +27,13 @@ const STEPS: Step[] = [
     targets: ["new-gig"],
     title: "Got offered a gig?",
     body: () =>
-      "Tap New gig. Enter the fee, the venue and each rehearsal and performance. The app works out the miles, drive time, gas and food, then shows your real take-home and real hourly rate. Already played it? Turn on Already played to log what it actually paid and cost.",
+      "Tap New gig. Start with the client, then the fee, the venue and each rehearsal and performance. The app works out the miles, gas and food, shows your real take-home, and weighs it against what your time is worth. Already played it? Turn on Already played to log what it actually paid and cost.",
   },
   {
     targets: ["gigs"],
     title: "Every gig you check is saved here",
     body: () =>
-      "Each gig gets a colour: green is worth it, yellow is a close call, red isn't. Open one to see why, then Book it or Decline it. You can edit a gig or copy it for next season, and the tabs sort them into Undecided, Booked and Declined.",
+      "Each gig gets a colour: green means your take-home covers what your time is worth, yellow is a close call, red isn't worth it. Open one to see why, then Book it or Decline it. You can edit a gig or copy it for next season, and the tabs sort them into Undecided, Booked and Declined.",
   },
   {
     targets: ["calendar", "menu"],
@@ -53,10 +53,10 @@ const STEPS: Step[] = [
         rate for their gigs.
         <br />
         <br />
-        <strong>Example:</strong> a <strong>$300</strong> concert set works out to <strong>$26 an hour</strong> after
-        gas and driving. Against a $40 minimum that&apos;s <strong className="text-red-700">red</strong> for a
-        stranger, but <strong className="text-emerald-700">green</strong> for your Highly Favored orchestra, whose
-        minimum is $24.
+        <strong>Example:</strong> a <strong>$400</strong> concert set leaves you <strong>$280</strong> after gas,
+        food and taxes, for 8 hours of playing and 3 of driving. At a $40 minimum your time is worth $395:{" "}
+        <strong className="text-red-700">red</strong> for a stranger. For your Highly Favored orchestra (minimum $24)
+        it&apos;s worth $267: <strong className="text-emerald-700">green</strong>.
         {t === "menu" && (
           <>
             <br />
