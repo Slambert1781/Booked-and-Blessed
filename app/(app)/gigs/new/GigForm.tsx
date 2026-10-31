@@ -31,6 +31,7 @@ type Field =
   | "reimbFlat"
   | "roomCost"
   | "gasPrice"
+  | "mpg"
   | "foodStipend";
 
 const FIELD_LABEL: Record<Field, string> = {
@@ -45,6 +46,7 @@ const FIELD_LABEL: Record<Field, string> = {
   reimbFlat: "Flat mileage amount",
   roomCost: "Room cost per night",
   gasPrice: "Gas price",
+  mpg: "MPG",
   foodStipend: "Food stipend amount",
 };
 
@@ -153,6 +155,10 @@ export function GigForm({
     : { price: gas ? String(gas.price) : "", source: todaysGas };
   const [gasPrice, setGasPrice] = useState(startGas.price);
   const [gasSource, setGasSource] = useState<GasSource>(startGas.source);
+  // MPG for this gig: the car's from the profile, or what a saved gig used.
+  const [mpg, setMpg] = useState(initial?.mpg || String(profile.mpg));
+  // "See the assumptions": miles, minutes, gas price and MPG, collapsed until needed.
+  const [assumptionsOpen, setAssumptionsOpen] = useState(false);
 
   const [status, setStatus] = useState<GigStatus | null>(initial?.status ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +178,7 @@ export function GigForm({
       setDriveStatus("error");
       setDriveError(r.error);
       setDistanceIsManual(true);
+      setAssumptionsOpen(true); // so the miles and minutes can be typed in
       return;
     }
     setMiles(r.miles.toFixed(1));
@@ -241,6 +248,9 @@ export function GigForm({
     const m = parse(miles);
     const min = parse(minutes);
     const g = parse(gasPrice);
+    const carMpg = parse(mpg);
+    if (!carMpg) return null;
+    const gigProfile = { ...profile, mpg: carMpg };
     const dates = dated.map((s) => s.date);
     const pay = gigType === "orchestra" ? parse(feePerService) : parse(flatFee);
     if (m === null || min === null || g === null || pay === null || dates.length === 0) return null;
@@ -278,14 +288,14 @@ export function GigForm({
       lodging: parse(actualLodging),
     };
     return {
-      estimate: calculateGig(profile, calcGig, lookups),
-      result: calculateGig(profile, { ...calcGig, actuals }, lookups),
+      estimate: calculateGig(gigProfile, calcGig, lookups),
+      result: calculateGig(gigProfile, { ...calcGig, actuals }, lookups),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     profile, gigType, feePerService, flatFee, services, paysMileage, reimbType, reimbRatePerMile,
     flatReimbAmount, stayingOvernight, hosted, roomCostPerNight, stipendPerNight, lodgingNights, eatingOut, meals, paysFoodStipend, foodStipendType, foodStipendAmount, countDriveTime, miles,
-    minutes, gasPrice, isUnion, pensionPct, actualPay, actualGas, actualFood, actualLodging,
+    minutes, gasPrice, mpg, isUnion, pensionPct, actualPay, actualGas, actualFood, actualLodging,
   ]);
   const preview = both?.result ?? null;
   const estimate = both?.estimate ?? null;
@@ -334,6 +344,7 @@ export function GigForm({
     if (stayingOvernight && !hosted && parse(roomCostPerNight) === null) missing.push("roomCost");
     if (paysFoodStipend && parse(foodStipendAmount) === null) missing.push("foodStipend");
     if (!parse(gasPrice)) missing.push("gasPrice");
+    if (!parse(mpg)) missing.push("mpg");
     return missing;
   }
   const missing = triedToSave ? findMissing() : [];
@@ -343,7 +354,11 @@ export function GigForm({
     e.preventDefault();
     setError(null);
     setTriedToSave(true);
-    if (findMissing().length > 0) {
+    const missingNow = findMissing();
+    if (missingNow.some((f) => f === "miles" || f === "minutes" || f === "gasPrice" || f === "mpg")) {
+      setAssumptionsOpen(true);
+    }
+    if (missingNow.length > 0) {
       // Bring the first highlighted field into view.
       requestAnimationFrame(() => {
         const el = document.querySelector<HTMLElement>('[aria-invalid="true"]');
@@ -388,6 +403,7 @@ export function GigForm({
         oneWayMinutes: minutes,
         distanceIsManual,
         gasPrice,
+        mpg,
         gasPriceSource: gasSource ? gasSource.areaName : "Entered by hand",
         gasPriceDate: gasSource ? gasSource.periodDate : null,
         status,
@@ -493,34 +509,6 @@ export function GigForm({
         )}
         {driveStatus === "loading" && <p className="text-sm text-stone-500">Working out the drive…</p>}
         {driveError && <p className="text-sm text-amber-800">{driveError}</p>}
-        <div className="grid grid-cols-2 gap-3">
-          <TextField
-            label="Miles each way"
-            value={miles}
-            onChange={(v) => {
-              setMiles(v);
-              setDistanceIsManual(true);
-            }}
-            inputMode="decimal"
-            invalid={bad("miles")}
-          />
-          <TextField
-            label="Minutes each way"
-            value={minutes}
-            onChange={(v) => {
-              setMinutes(v);
-              setDistanceIsManual(true);
-            }}
-            inputMode="numeric"
-            invalid={bad("minutes")}
-          />
-        </div>
-        {driveStatus === "found" && !distanceIsManual && driveRoute && (
-          <p className="text-xs text-stone-500">
-            Google Maps, from <strong>{driveRoute.from}</strong> to <strong>{driveRoute.to}</strong>. You can change
-            these if you know better.
-          </p>
-        )}
       </section>
 
       <section className="space-y-3">
@@ -781,50 +769,118 @@ export function GigForm({
         )}
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Gas price</h2>
-        <MoneyField
-          label="Price per gallon"
-          value={gasPrice}
-          onChange={(v) => {
-            setGasPrice(v);
-            setGasSource(null);
-          }}
-          invalid={bad("gasPrice")}
-        />
-        {gasSource && (
-          <p className="text-xs text-stone-500">
-            {gasSource.kind === "state"
-              ? "State average"
-              : gasSource.kind === "region"
-                ? "Regional average"
-                : gasSource.kind === "national"
-                  ? "National average"
-                  : "Average"}{" "}
-            for {gasSource.areaName}
-            {gasSource.periodDate &&
-              `, week of ${formatDate(gasSource.periodDate, { weekday: undefined, year: "numeric" })}`}{" "}
-            (U.S. EIA)
-          </p>
-        )}
-        {gas && gasSource?.periodDate !== gas.periodDate && (
-          <button
-            type="button"
-            className="text-xs text-indigo-700"
-            onClick={() => {
-              setGasPrice(String(gas.price));
-              setGasSource(todaysGas);
-            }}
-          >
-            Use this week&apos;s EIA average (${gas.price.toFixed(3)} for {gas.areaName})
-          </button>
-        )}
-        {!gas && !gasSource && (
-          <p className="text-sm text-amber-800">
-            Couldn&apos;t get today&apos;s gas price from the EIA. Type in what you&apos;re paying.
-          </p>
-        )}
-      </section>
+      <details
+        open={assumptionsOpen}
+        onToggle={(e) => setAssumptionsOpen((e.currentTarget as HTMLDetailsElement).open)}
+        className="group rounded-2xl bg-white px-4 py-3 shadow-sm"
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+          <span>
+            <span className="block font-semibold">See the assumptions</span>
+            <span className="block text-xs text-stone-500">
+              {[
+                parse(miles) !== null ? `${miles} mi` : null,
+                parse(minutes) !== null ? `${minutes} min each way` : null,
+                parse(gasPrice) ? `$${Number(gasPrice).toFixed(2)}/gal` : null,
+                parse(mpg) ? `${mpg} MPG` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") || "Miles, drive time, gas price and MPG"}
+            </span>
+          </span>
+          <span className="text-stone-400 transition-transform group-open:rotate-90">›</span>
+        </summary>
+
+        <div className="mt-4 space-y-4">
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3">
+              <TextField
+                label="Miles each way"
+                value={miles}
+                onChange={(v) => {
+                  setMiles(v);
+                  setDistanceIsManual(true);
+                }}
+                inputMode="decimal"
+                invalid={bad("miles")}
+              />
+              <TextField
+                label="Minutes each way"
+                value={minutes}
+                onChange={(v) => {
+                  setMinutes(v);
+                  setDistanceIsManual(true);
+                }}
+                inputMode="numeric"
+                invalid={bad("minutes")}
+              />
+            </div>
+            {driveStatus === "found" && !distanceIsManual && driveRoute && (
+              <p className="text-xs text-stone-500">
+                Google Maps, from <strong>{driveRoute.from}</strong> to <strong>{driveRoute.to}</strong>. You can
+                change these if you know better.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <MoneyField
+              label="Gas price per gallon"
+              value={gasPrice}
+              onChange={(v) => {
+                setGasPrice(v);
+                setGasSource(null);
+              }}
+              invalid={bad("gasPrice")}
+            />
+            {gasSource && (
+              <p className="text-xs text-stone-500">
+                {gasSource.kind === "state"
+                  ? "State average"
+                  : gasSource.kind === "region"
+                    ? "Regional average"
+                    : gasSource.kind === "national"
+                      ? "National average"
+                      : "Average"}{" "}
+                for {gasSource.areaName}
+                {gasSource.periodDate &&
+                  `, week of ${formatDate(gasSource.periodDate, { weekday: undefined, year: "numeric" })}`}{" "}
+                (U.S. EIA)
+              </p>
+            )}
+            {gas && gasSource?.periodDate !== gas.periodDate && (
+              <button
+                type="button"
+                className="text-xs text-indigo-700"
+                onClick={() => {
+                  setGasPrice(String(gas.price));
+                  setGasSource(todaysGas);
+                }}
+              >
+                Use this week&apos;s EIA average (${gas.price.toFixed(3)} for {gas.areaName})
+              </button>
+            )}
+            {!gas && !gasSource && (
+              <p className="text-sm text-amber-800">
+                Couldn&apos;t get today&apos;s gas price from the EIA. Type in what you&apos;re paying.
+              </p>
+            )}
+          </div>
+
+          <TextField
+            label="Miles per gallon (MPG)"
+            value={mpg}
+            onChange={setMpg}
+            inputMode="decimal"
+            invalid={bad("mpg")}
+            hint={
+              parse(mpg) === profile.mpg
+                ? "Your car's MPG from your profile. Change it for this gig if you're driving something else."
+                : `Your profile says ${profile.mpg} MPG; this gig uses ${mpg || "—"}.`
+            }
+          />
+        </div>
+      </details>
 
       {showActuals && (
         <section id="actuals" className="scroll-mt-4 space-y-3">

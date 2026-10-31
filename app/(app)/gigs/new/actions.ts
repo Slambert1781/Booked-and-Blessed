@@ -79,6 +79,8 @@ export type GigInput = {
   oneWayMinutes: string;
   distanceIsManual: boolean;
   gasPrice: string;
+  /** MPG for this gig; blank = the car's MPG from the profile. */
+  mpg: string;
   gasPriceSource: string;
   gasPriceDate: string | null;
   /** Optional decision; no choice saves as undecided. */
@@ -146,6 +148,8 @@ function validate(
   if (miles === null || Number.isNaN(miles) || minutes === null || Number.isNaN(minutes))
     return { error: "Enter the miles and drive time each way." };
   if (gas === null || Number.isNaN(gas) || gas === 0) return { error: "Enter the gas price per gallon." };
+  const mpg = amount(input.mpg);
+  if (mpg !== null && (Number.isNaN(mpg) || mpg === 0)) return { error: "Enter the car's miles per gallon." };
 
   const actual = {
     pay: amount(input.actualPay),
@@ -201,6 +205,7 @@ function validate(
       one_way_minutes: minutes,
       distance_is_manual: input.distanceIsManual,
       gas_price: gas,
+      ...(mpg !== null && { mpg_used: mpg }),
       gas_price_source: input.gasPriceSource || "Entered by hand",
       gas_price_date: input.gasPriceDate,
       status,
@@ -274,11 +279,12 @@ export async function createGig(input: GigInput): Promise<{ error: string } | vo
   const { data: gig, error } = await supabase
     .from("gigs")
     .insert({
+      // The profile values this gig is worked out with, frozen. A per-gig MPG
+      // from the assumptions panel (in v.fields) replaces the profile's.
+      mpg_used: num(profile!.mpg),
       ...v.fields,
       client_id: clientId,
       user_id: result.userId,
-      // The profile values this gig is worked out with, frozen.
-      mpg_used: num(profile!.mpg),
       playing_rate_used: num(profile!.playing_rate),
       driving_rate_used: num(profile!.driving_rate),
       meal_rates_used: mealRatesFromProfile(profile),

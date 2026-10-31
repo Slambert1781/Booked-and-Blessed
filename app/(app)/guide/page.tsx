@@ -54,9 +54,8 @@ const SECTIONS: Section[] = [
             payment for the whole gig.
           </li>
           <li>
-            <strong>Venue</strong> (required): start typing and <strong>pick it from the suggestions</strong>. The miles and
-            minutes each way fill in from Google Maps, and the grey line underneath shows exactly which two
-            addresses were used. You can type your own miles and minutes instead.
+            <strong>Venue</strong> (required): start typing and <strong>pick it from the suggestions</strong>. The
+            drive is worked out from Google Maps.
           </li>
           <li>
             <strong>Rehearsals and performances</strong>: add one row for each. Choose Rehearsal or Performance,
@@ -64,8 +63,10 @@ const SECTIONS: Section[] = [
             time is optional and only shows on your calendar.
           </li>
           <li>
-            <strong>Gas price</strong>: this week&apos;s average for your state or region fills in. Type over it if
-            you know better.
+            <strong>See the assumptions</strong>: tap to check or change what the gig is worked out with: miles and
+            minutes each way (with the two addresses Google used), the gas price (this week&apos;s average for your
+            state or region, with its date) and your car&apos;s MPG. It opens by itself if something there needs
+            filling in.
           </li>
         </ul>
         <p>Anything you&apos;ve missed is highlighted in red when you tap Save.</p>

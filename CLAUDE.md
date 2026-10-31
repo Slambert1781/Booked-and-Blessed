@@ -55,8 +55,12 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
 - An optional gig name (a copy must get its own, different name)
 - How you're paid: **per service** (fee × number of services) or **one fee**
   for the whole gig. Stored as `gig_type` `orchestra` / `flat_fee`.
-- Venue address (required); one-way miles and minutes from Google Routes, or
-  typed in
+- Venue address (required). The drive is looked up from Google Routes.
+- **See the assumptions**: a collapsed row (with a one-line summary) holding
+  miles and minutes each way (with the From/To addresses), gas price (with
+  its source and date) and MPG, all auto-filled and editable. It opens by
+  itself when a lookup fails or one of them is missing. MPG starts from the
+  profile and can be changed per gig (saved as `mpg_used`).
 - Services: each is a rehearsal or a performance, with a date, an optional
   start time (calendar only) and a length in hours
 - Extras: union gig (with pension %), mileage reimbursement (per mile or
@@ -65,8 +69,8 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
   meals** each day (starts as dinner for a local gig, all four when staying
   overnight), a **food stipend** (per day or a flat amount), and **don't
   charge my drive time** (off by default, so drive time counts)
-- Gas price: this week's EIA average for the state (or region, then
-  national), or typed in
+- Gas price (in the assumptions): this week's EIA average for the state (or
+  region, then national), or typed in
 - Decision: undecided / booked (`taken`) / declined. A booked gig whose dates
   have all passed is labelled **Played** and no longer shows the decision.
 

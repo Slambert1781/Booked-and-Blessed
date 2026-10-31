@@ -46,6 +46,8 @@ export type GigFormValues = {
   minutes: string;
   distanceIsManual: boolean;
   gasPrice: string;
+  /** "" = the car's MPG from the profile. */
+  mpg: string;
   gasSource: GasSource;
   status: GigStatus | null;
 };
@@ -106,6 +108,8 @@ export function gigToFormValues(gig: GigRow, services: ServiceRow[], mode: "edit
     })(),
     distanceIsManual: gig.distance_is_manual,
     gasPrice: mode === "edit" ? str(gig.gas_price) : "",
+    // A copy uses the car you have now.
+    mpg: mode === "edit" ? str(gig.mpg_used) : "",
     gasSource: mode === "edit" && !hand ? { areaName: gig.gas_price_source!, periodDate: gig.gas_price_date ?? null } : null,
     status: mode === "edit" ? statusOf(gig) : null,
   };
