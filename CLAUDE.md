@@ -52,7 +52,12 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
   editable. A name not in the directory offers "Add '[name]' as a new
   client" with a one-tap tier picker (New Face to start); the client is
   created when the gig is saved (or reused if one has that name).
-- An optional gig name (a copy must get its own, different name)
+- An optional gig name (a copy must get its own, different name). Without
+  one, a gig is called by its client's name, then the venue's place name
+  from Google (`venue_name`, saved when the venue is picked from the
+  suggestions; null for plain street addresses), then its first date: never
+  a street address (`gigName` in `lib/gigs.ts`). On a client's own page the
+  client's name is skipped.
 - How you're paid: **per service** (fee × number of services) or **one fee**
   for the whole gig. Stored as `gig_type` `orchestra` / `flat_fee`.
 - Venue address (required). The drive is looked up from Google Routes.
@@ -177,7 +182,7 @@ Every user table has `user_id` → `auth.users` and owner-only RLS policies.
   meal_dinner_rate / meal_incidentals_rate (defaults 16 / 19 / 28 / 5),
   tier_discounts, holiday_rush_enabled, rush_periods.
   (rush_discount_keep_pct is no longer used.)
-- **gigs**: client_id, title, gig_type, venue (text, lat/lng), fees,
+- **gigs**: client_id, title, gig_type, venue (text, lat/lng, venue_name), fees,
   mileage and lodging fields, lodging_nights, eating_out (default true),
   meals (which meals, jsonb), food_stipend_type (per_day | flat),
   food_stipend_amount,

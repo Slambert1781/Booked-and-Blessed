@@ -4,7 +4,7 @@ import { getGasPrice, type GasPrice } from "@/lib/eia/gasPrice";
 import { relationshipSettingsFrom } from "@/lib/clients";
 import { listClients } from "@/lib/clientsServer";
 import { gigToFormValues } from "@/lib/gigForm";
-import { settingsFrom } from "@/lib/gigs";
+import { gigName, settingsFrom } from "@/lib/gigs";
 import { loadGig } from "@/lib/loadGig";
 import { getProfile } from "@/lib/profile";
 import { mealRatesFromProfile, parseMealRates } from "@/lib/meals";
@@ -53,7 +53,10 @@ export default async function EditGigPage({ params }: { params: Promise<{ id: st
         mode={{ kind: "edit", gigId: id }}
       />
       <div className="mt-10 border-t border-stone-200 pt-4">
-        <DeleteGigButton gigId={id} name={gig.title || gig.venue_address} />
+        <DeleteGigButton
+          gigId={id}
+          name={gigName(gig, clients.find((c) => c.id === gig.client_id)?.name, services)}
+        />
       </div>
     </main>
   );

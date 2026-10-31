@@ -9,6 +9,7 @@ import { listClients } from "@/lib/clientsServer";
 import { todayISO } from "@/lib/today";
 import {
   GIG_STATUSES,
+  gigName,
   isPlayed,
   resultForSavedGig,
   settingsFrom,
@@ -67,7 +68,11 @@ export default async function Home({
         <SavedBanner
           key={savedGig.id}
           gigId={savedGig.id}
-          text={`Saved: ${savedGig.title || savedGig.venue_address.split(",")[0]} · ${formatMoney(
+          text={`Saved: ${gigName(
+            savedGig,
+            savedGig.client_id ? clientsById.get(savedGig.client_id)?.name : null,
+            savedGig.gig_services,
+          )} · ${formatMoney(
             resultForSavedGig(savedGig, savedGig.gig_services, settings).realTakeHome,
           )} take-home`}
         />
@@ -102,6 +107,9 @@ export default async function Home({
           {shown.map((gig) => {
             const r = resultForSavedGig(gig, gig.gig_services, settings);
             const client = gig.client_id ? (clientsById.get(gig.client_id) ?? null) : null;
+            const name = gigName(gig, client?.name, gig.gig_services);
+            // Under the name: the client (when the name is the gig's own title), else the venue.
+            const subtitle = client && name !== client.name ? client.name : gig.venue_name || gig.venue_address;
             const v = verdictFor(
               r,
               gig.gig_services.map((s) => s.service_date),
@@ -116,11 +124,9 @@ export default async function Home({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate font-semibold">{gig.title || gig.venue_address}</p>
-                      {(client || gig.title) && (
-                        <p className="truncate text-sm text-stone-600">
-                          {client ? client.name : gig.venue_address}
-                        </p>
+                      <p className="truncate font-semibold">{name}</p>
+                      {subtitle && subtitle !== name && (
+                        <p className="truncate text-sm text-stone-600">{subtitle}</p>
                       )}
                       <p className="mt-1 text-sm text-stone-500">
                         {formatDateRange(gig.gig_services.map((s) => s.service_date))}

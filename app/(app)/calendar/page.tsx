@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { addMonths, monthGrid, monthKey, parseMonth, type Month } from "@/lib/calendar";
 import { formatDate, formatMoney, formatTime } from "@/lib/format";
-import { resultForSavedGig, settingsFrom, statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
+import { listClients } from "@/lib/clientsServer";
+import { gigName, resultForSavedGig, settingsFrom, statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
 import { getProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { todayISO } from "@/lib/today";
@@ -29,12 +30,13 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     .select("*, gig_services(*)")
     .returns<GigWithServices[]>();
 
+  const clientNames = new Map((await listClients()).map((c) => [c.id, c.name]));
   const taken = (gigs ?? []).filter((g) => statusOf(g) === "taken");
   const entries: Entry[] = taken
     .flatMap((g) =>
       g.gig_services.map((s) => ({
         gigId: g.id,
-        title: g.title || g.venue_address.split(",")[0],
+        title: gigName(g, g.client_id ? clientNames.get(g.client_id) : null, g.gig_services),
         date: s.service_date,
         time: s.start_time,
       })),

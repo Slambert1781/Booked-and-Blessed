@@ -1,4 +1,5 @@
 import { calculateGig, type Actuals, type CalcGig, type GigResult } from "@/lib/calculateGig";
+import { formatDate } from "@/lib/format";
 import { parseMealChoice, parseMealRates } from "@/lib/meals";
 import type { ProfileRow } from "@/lib/types";
 import { num } from "@/lib/types";
@@ -58,6 +59,7 @@ export type GigRow = {
   actual_food_cost?: Numeric;
   actual_lodging_cost?: Numeric;
   logged_after?: boolean | null;
+  venue_name?: string | null;
   meals?: unknown;
   meal_rates_used?: unknown;
   food_stipend_type?: "per_day" | "flat" | null;
@@ -157,3 +159,17 @@ export function isPlayed(gig: GigRow, services: ServiceRow[], today: string): bo
 
 /** Show the estimate-vs-actual comparison: actuals were entered for a gig estimated beforehand. */
 export const canCompare = (gig: GigRow) => !gig.logged_after && actualsOf(gig) !== null;
+
+/**
+ * What to call a gig: its title, else the client's name, else the venue's
+ * place name. Never a street address; failing all three, its first date.
+ */
+export function gigName(gig: GigRow, clientName?: string | null, services?: ServiceRow[]): string {
+  const first = services?.map((s) => s.service_date).sort()[0];
+  return (
+    gig.title?.trim() ||
+    clientName?.trim() ||
+    gig.venue_name?.trim() ||
+    (first ? `Gig on ${formatDate(first, { year: "numeric" })}` : "Untitled gig")
+  );
+}

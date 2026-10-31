@@ -82,10 +82,16 @@ export function AddressInput({
       const q = new URLSearchParams({ id: s.placeId, session: session.current });
       const res = await fetch(`/api/places/details?${q}`);
       if (!res.ok) throw new Error();
-      const d = (await res.json()) as { address: string; lat: number; lng: number; state: string | null };
+      const d = (await res.json()) as {
+        address: string;
+        lat: number;
+        lng: number;
+        state: string | null;
+        name?: string | null;
+      };
       skipNext.current = true;
       setQuery(d.address);
-      onChange({ address: d.address, lat: d.lat, lng: d.lng, state: d.state });
+      onChange({ address: d.address, lat: d.lat, lng: d.lng, state: d.state, name: d.name ?? null });
     } catch {
       // Keep the text; distance can still be entered by hand.
     }

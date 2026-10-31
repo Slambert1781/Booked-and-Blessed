@@ -5,6 +5,7 @@ import { formatDate, formatHours, formatMiles, formatMoney, formatTime } from "@
 import {
   actualsOf,
   canCompare,
+  gigName,
   isPlayed,
   resultForSavedGig,
   SERVICE_KIND_LABEL,
@@ -53,8 +54,11 @@ export default async function GigResultPage({
       <Link href="/" className="text-sm text-indigo-700">
         ← Gigs
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold">{gig.title || gig.venue_address}</h1>
-      {gig.title && <p className="text-stone-600">{gig.venue_address}</p>}
+      <h1 className="mt-2 text-2xl font-semibold">{gigName(gig, client?.name, services)}</h1>
+      <p className="text-stone-600">
+        {gig.venue_name && gig.venue_name !== gigName(gig, client?.name, services) ? `${gig.venue_name} · ` : ""}
+        {gig.venue_address}
+      </p>
       {client && (
         <Link href={`/clients/${client.id}`} className="mt-1 inline-block text-sm text-indigo-700">
           {client.name} · {KIND_LABEL[client.kind]} · {TIER_LABEL[client.tier]}
@@ -156,7 +160,7 @@ export default async function GigResultPage({
       </section>
 
       <div className="mt-10">
-        <DeleteGigButton gigId={gig.id} name={gig.title || gig.venue_address} />
+        <DeleteGigButton gigId={gig.id} name={gigName(gig, client?.name, services)} />
       </div>
     </main>
   );

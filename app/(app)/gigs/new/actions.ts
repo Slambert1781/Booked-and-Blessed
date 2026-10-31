@@ -175,6 +175,7 @@ function validate(
       client_id: input.clientId || null,
       gig_type: input.gigType,
       venue_address: input.venue.address.trim(),
+      venue_name: input.venue.name?.trim() || null,
       venue_lat: input.venue.lat,
       venue_lng: input.venue.lng,
       fee_per_service: input.gigType === "orchestra" ? fee : null,

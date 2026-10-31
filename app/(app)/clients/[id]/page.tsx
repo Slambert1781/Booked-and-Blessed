@@ -6,7 +6,7 @@ import { KIND_LABEL, relationshipSettingsFrom } from "@/lib/clients";
 import { getClient } from "@/lib/clientsServer";
 import { bookedTotalsByYear } from "@/lib/clientStats";
 import { formatDateRange, formatMoney } from "@/lib/format";
-import { isPlayed, resultForSavedGig, settingsFrom, statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
+import { gigName, isPlayed, resultForSavedGig, settingsFrom, statusOf, type GigRow, type ServiceRow } from "@/lib/gigs";
 import { todayISO } from "@/lib/today";
 import { getProfile } from "@/lib/profile";
 import { rushTier, TIER_LABEL } from "@/lib/relationships";
@@ -112,7 +112,8 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                     className="flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 shadow-sm active:bg-stone-50"
                   >
                     <span className="min-w-0">
-                      <span className="block truncate font-medium">{g.title || g.venue_address}</span>
+                      <span className="block truncate font-medium">{/* Every gig here is this client's, so name them by title, then venue. */}
+                        {gigName(g, null, g.gig_services)}</span>
                       <span className="block text-sm text-stone-500">
                         {formatDateRange(g.gig_services.map((s) => s.service_date))}
                       </span>

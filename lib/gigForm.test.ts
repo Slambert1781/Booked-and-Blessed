@@ -92,3 +92,15 @@ describe("past gig helpers", () => {
     expect(canCompare({ ...gig, actual_gas_cost: "41.00", logged_after: true })).toBe(false);
   });
 });
+
+describe("gigName", () => {
+  it("title, then client, then venue name, never the street address", async () => {
+    const { gigName } = await import("./gigs");
+    const svc = [{ id: "a", service_date: "2026-12-05", start_time: null }];
+    expect(gigName(gig, "Willamette Symphony")).toBe("Messiah");
+    expect(gigName({ ...gig, title: null }, "Willamette Symphony")).toBe("Willamette Symphony");
+    expect(gigName({ ...gig, title: "  ", venue_name: "First Church" }, null)).toBe("First Church");
+    expect(gigName({ ...gig, title: null, venue_name: null }, null, svc)).toBe("Gig on Sat, Dec 5, 2026");
+    expect(gigName({ ...gig, title: null }, null)).not.toContain("Corvallis");
+  });
+});

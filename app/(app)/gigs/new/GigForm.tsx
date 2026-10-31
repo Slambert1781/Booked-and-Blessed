@@ -373,7 +373,7 @@ export function GigForm({
         clientId: clientChoice?.kind === "existing" ? clientChoice.client.id : null,
         newClient: clientChoice?.kind === "new" ? { name: clientChoice.name, tier: clientChoice.tier } : null,
         gigType,
-        venue: { address: venue.address, lat: venue.lat, lng: venue.lng },
+        venue: { address: venue.address, lat: venue.lat, lng: venue.lng, name: venue.name ?? null },
         feePerService,
         flatFee,
         services,

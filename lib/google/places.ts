@@ -9,7 +9,13 @@ export type PlaceDetails = {
   lat: number;
   lng: number;
   state: string | null; // two-letter code
+  /** The place's name (e.g. "First Presbyterian Church"); null for a plain street address. */
+  name?: string | null;
 };
+
+/** A business or landmark has a name worth showing; a street address doesn't. */
+const isNamedPlace = (types: string[] | undefined) =>
+  !!types?.some((t) => t === "establishment" || t === "point_of_interest");
 
 function key() {
   const k = process.env.GOOGLE_MAPS_API_KEY;
@@ -52,7 +58,7 @@ export async function placeDetails(placeId: string, sessionToken: string): Promi
   const res = await fetch(`${BASE}/places/${encodeURIComponent(placeId)}?${q}`, {
     headers: {
       "X-Goog-Api-Key": key(),
-      "X-Goog-FieldMask": "formattedAddress,location,addressComponents",
+      "X-Goog-FieldMask": "formattedAddress,location,addressComponents,displayName,types",
     },
     cache: "no-store",
   });
@@ -61,6 +67,8 @@ export async function placeDetails(placeId: string, sessionToken: string): Promi
     formattedAddress: string;
     location: { latitude: number; longitude: number };
     addressComponents?: { shortText: string; types: string[] }[];
+    displayName?: { text: string };
+    types?: string[];
   };
   const state =
     data.addressComponents?.find((c) => c.types.includes("administrative_area_level_1"))
@@ -70,6 +78,7 @@ export async function placeDetails(placeId: string, sessionToken: string): Promi
     lat: data.location.latitude,
     lng: data.location.longitude,
     state,
+    name: isNamedPlace(data.types) ? (data.displayName?.text ?? null) : null,
   };
 }
 

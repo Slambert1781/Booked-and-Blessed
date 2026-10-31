@@ -69,7 +69,7 @@ export function gigToFormValues(gig: GigRow, services: ServiceRow[], mode: "edit
     title: mode === "edit" ? (gig.title ?? "") : "",
     clientId: gig.client_id ?? null,
     gigType: gig.gig_type,
-    venue: { address: gig.venue_address, lat: gig.venue_lat, lng: gig.venue_lng, state: null },
+    venue: { address: gig.venue_address, lat: gig.venue_lat, lng: gig.venue_lng, state: null, name: gig.venue_name ?? null },
     feePerService: str(gig.fee_per_service),
     flatFee: str(gig.flat_fee),
     services: services.map((s) => ({
