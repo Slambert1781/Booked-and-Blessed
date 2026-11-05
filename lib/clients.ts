@@ -52,6 +52,8 @@ export type ClientGigDefaults = {
   hosted: boolean;
   roomCostPerNight: number | null;
   stipendPerNight: number | null;
+  /** Where rehearsals usually are, when that isn't the venue. */
+  rehearsalLocation?: { address: string; lat: number | null; lng: number | null; name: string | null } | null;
 };
 
 const numOrNull = (v: unknown) => {
@@ -85,6 +87,17 @@ export function parseGigDefaults(raw: unknown): ClientGigDefaults | null {
     hosted: r.hosted === true,
     roomCostPerNight: numOrNull(r.roomCostPerNight),
     stipendPerNight: numOrNull(r.stipendPerNight),
+    rehearsalLocation: (() => {
+      const l = r.rehearsalLocation as Record<string, unknown> | null | undefined;
+      return l && typeof l.address === "string" && l.address.trim()
+        ? {
+            address: l.address,
+            lat: numOrNull(l.lat),
+            lng: numOrNull(l.lng),
+            name: typeof l.name === "string" && l.name.trim() ? l.name : null,
+          }
+        : null;
+    })(),
   };
 }
 

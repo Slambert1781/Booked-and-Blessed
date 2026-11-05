@@ -56,8 +56,8 @@ describe("gigToFormValues", () => {
       pensionPct: "10",
     });
     expect(v.services).toEqual([
-      { kind: "rehearsal", date: "2026-12-05", time: "19:30", hours: "2.5" },
-      { kind: "rehearsal", date: "2026-12-06", time: "", hours: "" },
+      { kind: "rehearsal", date: "2026-12-05", time: "19:30", hours: "2.5", location: null },
+      { kind: "rehearsal", date: "2026-12-06", time: "", hours: "", location: null },
     ]);
     expect(v.venue).toMatchObject({ lat: 44.56, lng: -123.26 });
   });
@@ -102,5 +102,51 @@ describe("gigName", () => {
     expect(gigName({ ...gig, title: "  ", venue_name: "First Church" }, null)).toBe("First Church");
     expect(gigName({ ...gig, title: null, venue_name: null }, null, svc)).toBe("Gig on Sat, Dec 5, 2026");
     expect(gigName({ ...gig, title: null }, null)).not.toContain("Corvallis");
+  });
+});
+
+describe("service locations", () => {
+  it("edit keeps a service's own location and drive", async () => {
+    const v = gigToFormValues(
+      gig,
+      [
+        {
+          id: "s1",
+          service_date: "2026-12-04",
+          start_time: null,
+          kind: "rehearsal",
+          location_address: "First Church, Corvallis, OR",
+          location_lat: 44.5,
+          location_lng: -123.2,
+          location_name: "First Church",
+          location_miles: "10.40",
+          location_minutes: "14.6",
+        },
+      ],
+      "edit",
+    );
+    expect(v.services[0].location).toEqual({
+      address: "First Church, Corvallis, OR",
+      lat: 44.5,
+      lng: -123.2,
+      name: "First Church",
+      miles: "10.4",
+      minutes: "15",
+    });
+  });
+
+  it("serviceDrive is null for a service at the venue", async () => {
+    const { serviceDrive } = await import("./gigs");
+    expect(serviceDrive({ id: "x", service_date: "2026-12-04", start_time: null })).toBeNull();
+    expect(
+      serviceDrive({
+        id: "x",
+        service_date: "2026-12-04",
+        start_time: null,
+        location_address: "Hall",
+        location_miles: "10",
+        location_minutes: "15",
+      }),
+    ).toEqual({ miles: 10, minutes: 15 });
   });
 });

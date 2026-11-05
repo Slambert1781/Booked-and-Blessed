@@ -21,6 +21,11 @@ export type CalcGig = {
   flatFee?: number | null;
   /** Dates of each service as YYYY-MM-DD; duplicates are fine. */
   serviceDates: string[];
+  /**
+   * Where each service is, when it isn't the gig's venue (same order as
+   * serviceDates): its one-way drive from home. Null/missing = the venue.
+   */
+  serviceDrives?: ({ miles: number; minutes: number } | null)[];
 
   paysMileage: boolean;
   reimbType?: "per_mile" | "flat" | null;
@@ -139,10 +144,30 @@ export function calculateGig(profile: CalcProfile, gig: CalcGig, lookups: CalcLo
       ? n(gig.feePerService) * n(gig.numberOfServices)
       : n(gig.flatFee);
 
-  const roundTripMiles = lookups.oneWayMiles * 2;
-  const roundTripHours = (lookups.oneWayMinutes * 2) / 60;
-  const totalMiles = roundTripMiles * roundTrips;
-  const totalDriveHours = roundTripHours * roundTrips;
+  // One round trip per service day, to that day's location. If a day has
+  // services in two places, the trip to the farther one counts. Staying
+  // overnight is one round trip to the venue (other locations aren't added).
+  const venueDrive = { miles: lookups.oneWayMiles, minutes: lookups.oneWayMinutes };
+  let oneWayMilesTotal = 0;
+  let oneWayMinutesTotal = 0;
+  if (gig.stayingOvernight) {
+    oneWayMilesTotal = venueDrive.miles;
+    oneWayMinutesTotal = venueDrive.minutes;
+  } else {
+    const farthestByDay = new Map<string, { miles: number; minutes: number }>();
+    gig.serviceDates.forEach((date, i) => {
+      if (!date) return;
+      const drive = gig.serviceDrives?.[i] ?? venueDrive;
+      const current = farthestByDay.get(date);
+      if (!current || drive.miles > current.miles) farthestByDay.set(date, drive);
+    });
+    for (const d of farthestByDay.values()) {
+      oneWayMilesTotal += d.miles;
+      oneWayMinutesTotal += d.minutes;
+    }
+  }
+  const totalMiles = oneWayMilesTotal * 2;
+  const totalDriveHours = (oneWayMinutesTotal * 2) / 60;
 
   const gasCost = isSet(a.gas)
     ? a.gas

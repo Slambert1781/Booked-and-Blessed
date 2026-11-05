@@ -5,6 +5,7 @@ import { AddressInput, type AddressValue } from "@/components/AddressInput";
 import { ClientTypeahead, type ClientChoice } from "@/components/ClientTypeahead";
 import { DecisionPicker } from "@/components/DecisionPicker";
 import { ResultBreakdown } from "@/components/ResultBreakdown";
+import { ServiceLocation } from "@/components/ServiceLocation";
 import { calculateGig, type CalcGig, type CalcProfile } from "@/lib/calculateGig";
 import { verdictFor, type ClientSummary, type RelationshipSettings } from "@/lib/clients";
 import type { GasPrice } from "@/lib/eia/gasPrice";
@@ -32,6 +33,7 @@ type Field =
   | "roomCost"
   | "gasPrice"
   | "mpg"
+  | "locationDrive"
   | "foodStipend";
 
 const FIELD_LABEL: Record<Field, string> = {
@@ -47,6 +49,7 @@ const FIELD_LABEL: Record<Field, string> = {
   roomCost: "Room cost per night",
   gasPrice: "Gas price",
   mpg: "MPG",
+  locationDrive: "Miles and minutes to each other location",
   foodStipend: "Food stipend amount",
 };
 
@@ -108,7 +111,7 @@ export function GigForm({
   const [services, setServices] = useState<Service[]>(
     initial?.services.length
       ? initial.services
-      : [{ kind: "rehearsal", date: today(), time: "", hours: defaultHours }],
+      : [{ kind: "rehearsal", date: today(), time: "", hours: defaultHours, location: null }],
   );
 
   const [paysMileage, setPaysMileage] = useState(initial?.paysMileage ?? false);
@@ -211,6 +214,22 @@ export function GigForm({
       // A venue without coordinates isn't looked up automatically, so do it here.
       if (v.lat === null || v.lng === null) runLookup(v);
     }
+    const r = d.rehearsalLocation;
+    if (r) {
+      // Rehearsals are usually somewhere else for this client: put them there, then look up the drive.
+      const place = { ...r, miles: "", minutes: "" };
+      setServices((rows) => rows.map((x) => (x.kind === "rehearsal" && !x.location ? { ...x, location: place } : x)));
+      lookupDrive({ address: r.address, lat: r.lat, lng: r.lng }).then((res) => {
+        if ("error" in res) return;
+        setServices((rows) =>
+          rows.map((x) =>
+            x.location?.address === r.address
+              ? { ...x, location: { ...x.location, miles: res.miles.toFixed(1), minutes: String(Math.round(res.minutes)) } }
+              : x,
+          ),
+        );
+      });
+    }
   }
 
   // When the venue changes, miles looked up for the old venue no longer apply.
@@ -277,6 +296,11 @@ export function GigForm({
           : null,
       countDriveTime,
       serviceHours: dated.map((s) => parse(s.hours)),
+      serviceDrives: dated.map((s) => {
+        const m = s.location ? parse(s.location.miles) : null;
+        const min = s.location ? parse(s.location.minutes) : null;
+        return m !== null && min !== null ? { miles: m, minutes: min } : null;
+      }),
       isUnion,
       pensionPct: parse(pensionPct),
     };
@@ -345,6 +369,8 @@ export function GigForm({
     if (paysFoodStipend && parse(foodStipendAmount) === null) missing.push("foodStipend");
     if (!parse(gasPrice)) missing.push("gasPrice");
     if (!parse(mpg)) missing.push("mpg");
+    if (services.some((x) => x.location && (parse(x.location.miles) === null || parse(x.location.minutes) === null)))
+      missing.push("locationDrive");
     return missing;
   }
   const missing = triedToSave ? findMissing() : [];
@@ -355,7 +381,7 @@ export function GigForm({
     setError(null);
     setTriedToSave(true);
     const missingNow = findMissing();
-    if (missingNow.some((f) => f === "miles" || f === "minutes" || f === "gasPrice" || f === "mpg")) {
+    if (missingNow.some((f) => ["miles", "minutes", "gasPrice", "mpg", "locationDrive"].includes(f))) {
       setAssumptionsOpen(true);
     }
     if (missingNow.length > 0) {
@@ -415,6 +441,15 @@ export function GigForm({
 
   const updateService = (i: number, patch: Partial<Service>) =>
     setServices(services.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+
+  // Every place other than the venue, once each (its services share one drive).
+  const otherLocations = [
+    ...new Map(services.filter((x) => x.location).map((x) => [x.location!.address, x.location!])).values(),
+  ];
+  const updateLocation = (address: string, patch: Partial<NonNullable<Service["location"]>>) =>
+    setServices(
+      services.map((x) => (x.location?.address === address ? { ...x, location: { ...x.location!, ...patch } } : x)),
+    );
 
   const feeNum = parse(feePerService);
   const perServiceSum =
@@ -586,6 +621,12 @@ export function GigForm({
                   )}
                 </div>
               </div>
+              <ServiceLocation
+                id={`service-location-${i}`}
+                venueLabel={venue.name || venue.address.split(",")[0] || "the venue"}
+                value={s.location}
+                onChange={(location) => updateService(i, { location })}
+              />
             </li>
           ))}
         </ul>
@@ -600,6 +641,8 @@ export function GigForm({
                 date: services.at(-1)?.date ?? today(),
                 time: "",
                 hours: services.at(-1)?.hours || defaultHours,
+                // Usually the next rehearsal is in the same place as the last one.
+                location: services.at(-1)?.location ?? null,
               },
             ])
           }
@@ -793,6 +836,9 @@ export function GigForm({
 
         <div className="mt-4 space-y-4">
           <div className="space-y-2">
+            {otherLocations.length > 0 && (
+              <p className="-mb-1 text-sm font-medium">{venue.name || venue.address.split(",")[0] || "The venue"}</p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <TextField
                 label="Miles each way"
@@ -822,6 +868,33 @@ export function GigForm({
               </p>
             )}
           </div>
+
+          {otherLocations.map((loc) => (
+            <div key={loc.address} className="space-y-1">
+              <p className="text-sm font-medium">
+                {loc.name || loc.address.split(",")[0]}{" "}
+                <span className="font-normal text-stone-500">
+                  ({plural(services.filter((x) => x.location?.address === loc.address).length, "service")})
+                </span>
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <TextField
+                  label="Miles each way"
+                  value={loc.miles}
+                  onChange={(v) => updateLocation(loc.address, { miles: v })}
+                  inputMode="decimal"
+                  invalid={bad("locationDrive") && parse(loc.miles) === null}
+                />
+                <TextField
+                  label="Minutes each way"
+                  value={loc.minutes}
+                  onChange={(v) => updateLocation(loc.address, { minutes: v })}
+                  inputMode="numeric"
+                  invalid={bad("locationDrive") && parse(loc.minutes) === null}
+                />
+              </div>
+            </div>
+          ))}
 
           <div className="space-y-2">
             <MoneyField

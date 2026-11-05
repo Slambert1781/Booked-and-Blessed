@@ -73,7 +73,21 @@ export type ServiceRow = {
   start_time: string | null;
   duration_hours?: Numeric;
   kind?: ServiceKind | null;
+  /** Somewhere other than the gig's venue (all null = at the venue). */
+  location_address?: string | null;
+  location_lat?: number | null;
+  location_lng?: number | null;
+  location_name?: string | null;
+  location_miles?: Numeric;
+  location_minutes?: Numeric;
 };
+
+/** A service's own drive from home, or null when it's at the gig's venue. */
+export function serviceDrive(s: ServiceRow): { miles: number; minutes: number } | null {
+  const miles = num(s.location_miles ?? null);
+  const minutes = num(s.location_minutes ?? null);
+  return s.location_address && miles !== null && minutes !== null ? { miles, minutes } : null;
+}
 
 export type ServiceKind = "rehearsal" | "performance";
 export const SERVICE_KIND_LABEL: Record<ServiceKind, string> = { rehearsal: "Rehearsal", performance: "Performance" };
@@ -100,6 +114,7 @@ export function resultForSavedGig(
     numberOfServices: gig.number_of_services,
     flatFee: num(gig.flat_fee),
     serviceDates: services.map((s) => s.service_date),
+    serviceDrives: services.map(serviceDrive),
     paysMileage: gig.pays_mileage,
     reimbType: gig.reimb_type,
     reimbRatePerMile: num(gig.reimb_rate_per_mile),

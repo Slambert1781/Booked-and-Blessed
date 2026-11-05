@@ -8,6 +8,7 @@ import { oneWayDrive } from "@/lib/google/routes";
 import { getProfile } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import type { ClientGigDefaults } from "@/lib/clients";
+import type { ServiceLocation } from "@/lib/gigForm";
 import { GIG_STATUSES, type GigStatus, type ServiceKind } from "@/lib/gigs";
 import { isTier, type Tier } from "@/lib/relationships";
 import { defaultMeals, mealRatesFromProfile, parseMealRates, type MealChoice } from "@/lib/meals";
@@ -51,7 +52,7 @@ export type GigInput = {
   venue: Place;
   feePerService: string;
   flatFee: string;
-  services: { kind: ServiceKind; date: string; time: string; hours: string }[];
+  services: { kind: ServiceKind; date: string; time: string; hours: string; location: ServiceLocation | null }[];
   lodgingNights: string;
   eatingOut: boolean;
   /** Null = the default meals for the gig (dinner locally, all overnight). */
@@ -95,7 +96,13 @@ function amount(s: string): number | null {
 }
 
 type GigRowFields = Record<string, unknown>;
-type SavedService = { kind: ServiceKind; date: string; time: string; hours: number | null };
+type SavedService = {
+  kind: ServiceKind;
+  date: string;
+  time: string;
+  hours: number | null;
+  location: { address: string; lat: number | null; lng: number | null; name: string | null; miles: number; minutes: number } | null;
+};
 
 /** Check the form and turn it into database fields (shared by create and update). */
 function validate(
@@ -108,6 +115,17 @@ function validate(
       date: s.date,
       time: s.time,
       hours: amount(s.hours),
+      location:
+        s.location && s.location.address.trim()
+          ? {
+              address: s.location.address.trim(),
+              lat: s.location.lat,
+              lng: s.location.lng,
+              name: s.location.name?.trim() || null,
+              miles: amount(s.location.miles) ?? NaN,
+              minutes: amount(s.location.minutes) ?? NaN,
+            }
+          : null,
     }));
   const nights = input.stayingOvernight ? amount(input.lodgingNights) : null;
   if (nights !== null && (Number.isNaN(nights) || nights < 1 || nights > 60 || !Number.isInteger(nights)))
@@ -135,6 +153,8 @@ function validate(
     return { error: "Enter the flat mileage amount." };
   if (input.stayingOvernight && !input.hosted && (room === null || Number.isNaN(room)))
     return { error: "Enter the room cost per night, or tick 'hosted' if it's free." };
+  if (services.some((s) => s.location && (Number.isNaN(s.location.miles) || Number.isNaN(s.location.minutes))))
+    return { error: "Enter the miles and minutes each way to each other location (in See the assumptions)." };
   if (services.some((s) => Number.isNaN(s.hours) || s.hours === 0 || (s.hours ?? 0) > 24))
     return { error: "Check the hours for each service: a number like 2.5, or leave it blank." };
   const pension = input.isUnion ? amount(input.pensionPct) : null;
@@ -222,6 +242,12 @@ const serviceRows = (userId: string, gigId: string, services: SavedService[]) =>
     service_date: s.date,
     start_time: s.time || null,
     duration_hours: s.hours,
+    location_address: s.location?.address ?? null,
+    location_lat: s.location?.lat ?? null,
+    location_lng: s.location?.lng ?? null,
+    location_name: s.location?.name ?? null,
+    location_miles: s.location?.miles ?? null,
+    location_minutes: s.location?.minutes ?? null,
   }));
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -259,6 +285,11 @@ async function rememberTerms(supabase: Supabase, clientId: string, input: GigInp
     hosted: fields.hosted as boolean,
     roomCostPerNight: fields.room_cost_per_night as number | null,
     stipendPerNight: fields.stipend_per_night as number | null,
+    // Where rehearsals usually are, if not at the venue: filled in next time.
+    rehearsalLocation: (() => {
+      const r = input.services.find((s) => s.kind === "rehearsal" && s.location?.address.trim())?.location;
+      return r ? { address: r.address.trim(), lat: r.lat, lng: r.lng, name: r.name?.trim() || null } : null;
+    })(),
   };
   // Best effort: the gig is saved either way.
   await supabase.from("clients").update({ gig_defaults: gigDefaults }).eq("id", clientId);

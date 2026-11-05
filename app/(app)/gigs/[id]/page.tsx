@@ -8,6 +8,7 @@ import {
   gigName,
   isPlayed,
   resultForSavedGig,
+  serviceDrive,
   SERVICE_KIND_LABEL,
   settingsFrom,
   statusOf,
@@ -39,6 +40,17 @@ export default async function GigResultPage({
   const result = resultForSavedGig(gig, services, settings);
   const estimate = canCompare(gig) ? resultForSavedGig(gig, services, settings, false) : null;
   const played = isPlayed(gig, services, todayISO());
+  // Places other than the venue, once each, with their drive.
+  const otherPlaces = [
+    ...new Map(
+      services
+        .filter((x) => serviceDrive(x))
+        .map((x) => [
+          x.location_address!,
+          { name: x.location_name || x.location_address!.split(",")[0], ...serviceDrive(x)! },
+        ]),
+    ).values(),
+  ];
   const needsActuals = played && actualsOf(gig) === null;
   const client = await getClient(gig.client_id);
   const verdict = verdictFor(
@@ -125,7 +137,10 @@ export default async function GigResultPage({
             <li key={s.id} className="flex justify-between py-3">
               <span>
                 {formatDate(s.service_date)}
-                <span className="block text-xs text-stone-500">{SERVICE_KIND_LABEL[s.kind ?? "rehearsal"]}</span>
+                <span className="block text-xs text-stone-500">
+                  {SERVICE_KIND_LABEL[s.kind ?? "rehearsal"]}
+                  {s.location_address && ` · at ${s.location_name || s.location_address.split(",")[0]}`}
+                </span>
               </span>
               <span className="text-stone-600">
                 {formatTime(s.start_time)}
@@ -145,8 +160,20 @@ export default async function GigResultPage({
         <h2 className="text-lg font-semibold text-stone-900">How this was worked out</h2>
         <p>
           {formatMiles(num(gig.one_way_miles) ?? 0)} and {Math.round(num(gig.one_way_minutes) ?? 0)} min each way
+          {otherPlaces.length > 0 && ` to ${gig.venue_name || gig.venue_address.split(",")[0]}`}
           {gig.distance_is_manual ? " (entered by hand)" : " (Google Maps)"}.
         </p>
+        {otherPlaces.map((p) => (
+          <p key={p.name}>
+            {formatMiles(p.miles)} and {Math.round(p.minutes)} min each way to {p.name}.
+          </p>
+        ))}
+        {otherPlaces.length > 0 && (
+          <p>
+            One round trip per day, to that day&apos;s location (the farther one if a day has two).
+            {gig.staying_overnight && " Staying overnight counts one round trip to the venue."}
+          </p>
+        )}
         <p>
           Gas at ${gasPrice.toFixed(3)}/gal: {gig.gas_price_source ?? "entered by hand"}
           {gig.gas_price_date && `, week of ${formatDate(gig.gas_price_date, { weekday: undefined, year: "numeric" })} (U.S. EIA)`}.

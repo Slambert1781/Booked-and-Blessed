@@ -386,3 +386,51 @@ describe("calculateGig: cash take-home", () => {
     expect(r.playingRate).toBe(50);
   });
 });
+
+describe("calculateGig: rehearsals somewhere else", () => {
+  // Venue 50 mi / 60 min each way; the rehearsal hall 10 mi / 15 min.
+  const hall = { miles: 10, minutes: 15 };
+
+  it("each day's round trip goes to that day's location", () => {
+    // 4 days: 3 rehearsal days at the hall, then the concert day at the venue.
+    const r = calculateGig(
+      profile,
+      {
+        ...orchestra,
+        serviceDates: ["2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05"],
+        numberOfServices: 4,
+        serviceDrives: [hall, hall, hall, null],
+      },
+      lookups,
+    );
+    expect(r.roundTrips).toBe(4);
+    expect(r.totalMiles).toBe(3 * 20 + 100); // 160
+    expect(r.totalDriveHours).toBeCloseTo((3 * 30 + 120) / 60); // 3.5
+    expect(r.gasCost).toBeCloseTo((160 / 25) * 3);
+  });
+
+  it("two places on one day count the trip to the farther one", () => {
+    // Dress rehearsal at the hall and concert at the venue, same day.
+    const r = calculateGig(
+      profile,
+      { ...wedding, serviceDates: ["2026-11-05", "2026-11-05"], serviceDrives: [hall, null] },
+      lookups,
+    );
+    expect(r.roundTrips).toBe(1);
+    expect(r.totalMiles).toBe(100);
+    expect(r.totalDriveHours).toBe(2);
+  });
+
+  it("staying overnight is one round trip to the venue; other locations aren't added", () => {
+    const r = calculateGig(
+      profile,
+      { ...orchestra, stayingOvernight: true, serviceDrives: [hall, hall, hall, hall, null] },
+      lookups,
+    );
+    expect(r.totalMiles).toBe(100);
+  });
+
+  it("no locations given: every day goes to the venue, as before", () => {
+    expect(calculateGig(profile, orchestra, lookups).totalMiles).toBe(400);
+  });
+});

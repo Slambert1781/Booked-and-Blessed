@@ -4,7 +4,24 @@ import { statusOf } from "@/lib/gigs";
 import { parseMealChoice, type MealChoice } from "@/lib/meals";
 import { num } from "@/lib/types";
 
-export type FormService = { kind: ServiceKind; date: string; time: string; hours: string };
+/** Where a service is, when it isn't the gig's venue, with its one-way drive from home. */
+export type ServiceLocation = {
+  address: string;
+  lat: number | null;
+  lng: number | null;
+  name: string | null;
+  miles: string;
+  minutes: string;
+};
+
+export type FormService = {
+  kind: ServiceKind;
+  date: string;
+  time: string;
+  hours: string;
+  /** Null = at the gig's venue. */
+  location: ServiceLocation | null;
+};
 
 /** Where the gas price on the form came from; null = typed in by hand. */
 export type GasSource = { areaName: string; periodDate: string | null; kind?: "state" | "region" | "national" } | null;
@@ -77,6 +94,19 @@ export function gigToFormValues(gig: GigRow, services: ServiceRow[], mode: "edit
       date: s.service_date,
       time: (s.start_time ?? "").slice(0, 5),
       hours: str(s.duration_hours),
+      location: s.location_address
+        ? {
+            address: s.location_address,
+            lat: s.location_lat ?? null,
+            lng: s.location_lng ?? null,
+            name: s.location_name ?? null,
+            miles: str(s.location_miles ?? null),
+            minutes: (() => {
+              const m = num(s.location_minutes ?? null);
+              return m === null ? "" : String(Math.round(m));
+            })(),
+          }
+        : null,
     })),
     paysMileage: gig.pays_mileage,
     reimbType: gig.reimb_type ?? "per_mile",

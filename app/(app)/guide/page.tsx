@@ -63,6 +63,13 @@ const SECTIONS: Section[] = [
             time is optional and only shows on your calendar.
           </li>
           <li>
+            <strong>Rehearsing somewhere else?</strong> Under a rehearsal or performance, tap{" "}
+            <strong>Somewhere else?</strong> and pick the place; its drive is looked up separately. New rows you add
+            copy the place from the row above, and next time you pick that client their rehearsal place fills in.
+            Each day is one round trip to that day&apos;s place (the farther one if a day has two). When you&apos;re
+            staying overnight, it&apos;s one round trip to the venue.
+          </li>
+          <li>
             <strong>See the assumptions</strong>: tap to check or change what the gig is worked out with: miles and
             minutes each way (with the two addresses Google used), the gas price (this week&apos;s average for your
             state or region, with its date) and your car&apos;s MPG. It opens by itself if something there needs

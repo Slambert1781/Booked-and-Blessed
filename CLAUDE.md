@@ -67,7 +67,12 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
   itself when a lookup fails or one of them is missing. MPG starts from the
   profile and can be changed per gig (saved as `mpg_used`).
 - Services: each is a rehearsal or a performance, with a date, an optional
-  start time (calendar only) and a length in hours
+  start time (calendar only), a length in hours, and a location: the gig's
+  venue unless changed ("Somewhere else?" under the row), with its own
+  one-way drive from home looked up and stored on the service. New rows copy
+  the location of the row above; other locations' miles and minutes are
+  listed (editable) in See the assumptions. A client's gig_defaults also
+  remember where their rehearsals usually are (`rehearsalLocation`).
 - Extras: union gig (with pension %), mileage reimbursement (per mile or
   flat), staying overnight (hosted or room cost per night, lodging stipend
   per night, number of nights), **eating out** (on by default) with **which
@@ -98,11 +103,16 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
 ```
 service_days     = number of distinct dates among the gig's services
 round_trips      = staying_overnight ? 1 : service_days
+day_drive        = per service day, the one-way drive to that day's location
+                   (the farther one if a day has services in two places;
+                   the venue unless a service has its own location)
 nights           = staying_overnight ? (lodging_nights ?? max(service_days - 1, 1)) : 0
 
 total_pay        = actual_pay ?? (per_service ? fee_per_service * number_of_services : flat_fee)
-total_miles      = one_way_miles * 2 * round_trips
-total_drive_hrs  = one_way_minutes * 2 / 60 * round_trips
+total_miles      = staying_overnight ? one_way_miles * 2        (other locations not added)
+                 : sum of day_drive miles * 2
+total_drive_hrs  = staying_overnight ? one_way_minutes * 2 / 60
+                 : sum of day_drive minutes * 2 / 60
 
 gas_cost         = actual_gas ?? (total_miles / mpg) * gas_price_per_gallon
 drive_time_cost  = count_drive_time ? total_drive_hrs * (driving_rate ?? playing_rate) : 0
@@ -210,7 +220,9 @@ Every user table has `user_id` → `auth.users` and owner-only RLS policies.
   miles/minutes, gas price/source/date, mpg_used, playing_rate_used,
   driving_rate_used, meal_rates_used (jsonb).
 - **gig_services**: gig_id, kind (rehearsal | performance), service_date,
-  start_time, duration_hours.
+  start_time, duration_hours, and its own location when not at the venue:
+  location_address / lat / lng / name and location_miles / location_minutes
+  (one-way from home; all null = at the venue).
 - **clients**: name, kind, tier, notes, gig_defaults (jsonb: venue and
   terms from the client's most recent gig).
 - **gas_price_cache**: shared EIA prices (read by signed-in users, written by
