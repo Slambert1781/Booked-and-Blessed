@@ -81,6 +81,10 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
   charge my drive time** (off by default, so drive time counts)
 - Gas price (in the assumptions): this week's EIA average for the state (or
   region, then national), or typed in
+- The gig list (home) is in gig-date order: **Coming up** (any date today or
+  later) soonest first, then **Past** most recent first; gigs without dates
+  go last (`orderByGigDate` in `lib/gigs.ts`). The tabs filter, keeping the
+  same order.
 - Decision: undecided / booked (`taken`) / declined. A booked gig whose dates
   have all passed is labelled **Played** and no longer shows the decision.
 

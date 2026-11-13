@@ -150,3 +150,28 @@ describe("service locations", () => {
     ).toEqual({ miles: 10, minutes: 15 });
   });
 });
+
+describe("orderByGigDate", () => {
+  it("coming up soonest first, then past most recent first, undated last", async () => {
+    const { orderByGigDate } = await import("./gigs");
+    const g = (id: string, ...d: string[]) => ({
+      ...gig,
+      id,
+      gig_services: d.map((service_date, i) => ({ id: `${id}${i}`, service_date, start_time: null })),
+    });
+    const { upcoming, past } = orderByGigDate(
+      [
+        g("dec", "2026-12-05"),
+        g("oldest", "2026-01-10"),
+        g("running", "2026-11-10", "2026-11-15"), // started already, ends after today
+        g("nov", "2026-11-20"),
+        g("undated"),
+        g("oct", "2026-10-02"),
+        g("today", "2026-11-13"),
+      ],
+      "2026-11-13",
+    );
+    expect(upcoming.map((x) => x.id)).toEqual(["running", "today", "nov", "dec", "undated"]);
+    expect(past.map((x) => x.id)).toEqual(["oct", "oldest"]);
+  });
+});

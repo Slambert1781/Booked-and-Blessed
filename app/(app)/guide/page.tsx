@@ -167,8 +167,9 @@ const SECTIONS: Section[] = [
           gig, or later on its page (then tap <strong>Save decision</strong>).
         </li>
         <li>
-          <strong>Your gigs</strong> has tabs for All, Undecided, Booked and Declined. Each gig shows its take-home,
-          hourly rate and colour.
+          <strong>Your gigs</strong> is in date order: <strong>Coming up</strong> first (soonest at the top), then{" "}
+          <strong>Past</strong> (most recent first). Tabs show All, Undecided, Booked and Declined. Each gig shows its
+          take-home, hourly rate and colour.
         </li>
         <li>
           <strong>Calendar</strong> (in the menu) shows every rehearsal and performance of the gigs you&apos;ve

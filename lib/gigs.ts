@@ -188,3 +188,26 @@ export function gigName(gig: GigRow, clientName?: string | null, services?: Serv
     (first ? `Gig on ${formatDate(first, { year: "numeric" })}` : "Untitled gig")
   );
 }
+
+/**
+ * Order gigs by their dates: coming up (any date today or later) soonest
+ * first, then past gigs most recent first. Gigs without dates go last.
+ */
+export function orderByGigDate<G extends GigRow & { gig_services: ServiceRow[] }>(
+  gigs: G[],
+  today: string,
+): { upcoming: G[]; past: G[] } {
+  const dates = (g: G) => g.gig_services.map((s) => s.service_date).sort();
+  const upcoming: G[] = [];
+  const past: G[] = [];
+  for (const g of gigs) {
+    const d = dates(g);
+    if (d.length && d[d.length - 1] < today) past.push(g);
+    else upcoming.push(g);
+  }
+  const first = (g: G) => dates(g)[0] ?? "9999-12-31";
+  const last = (g: G) => dates(g).at(-1) ?? "";
+  upcoming.sort((a, b) => first(a).localeCompare(first(b)));
+  past.sort((a, b) => last(b).localeCompare(last(a)));
+  return { upcoming, past };
+}

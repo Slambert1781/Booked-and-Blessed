@@ -11,6 +11,7 @@ import {
   GIG_STATUSES,
   gigName,
   isPlayed,
+  orderByGigDate,
   resultForSavedGig,
   settingsFrom,
   STATUS_LABEL,
@@ -43,7 +44,6 @@ export default async function Home({
   const { data: gigs } = await supabase
     .from("gigs")
     .select("*, gig_services(*)")
-    .order("created_at", { ascending: false })
     .returns<GigWithServices[]>();
 
   const settings = settingsFrom(result.profile);
@@ -59,6 +59,70 @@ export default async function Home({
     { value: "all", label: "All" },
     ...GIG_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })),
   ];
+
+  // Coming up soonest first, then past gigs most recent first.
+  const { upcoming, past } = orderByGigDate(shown, today);
+  const groups = [
+    { label: "Coming up", gigs: upcoming },
+    { label: "Past", gigs: past },
+  ];
+
+  const renderGig = (gig: GigWithServices) => {
+    const r = resultForSavedGig(gig, gig.gig_services, settings);
+    const client = gig.client_id ? (clientsById.get(gig.client_id) ?? null) : null;
+    const name = gigName(gig, client?.name, gig.gig_services);
+    // Under the name: the client (when the name is the gig's own title), else the venue.
+    const subtitle = client && name !== client.name ? client.name : gig.venue_name || gig.venue_address;
+    const v = verdictFor(
+      r,
+      gig.gig_services.map((s) => s.service_date),
+      client,
+      rel,
+    );
+    return (
+      <li key={gig.id}>
+        <Link
+          href={`/gigs/${gig.id}`}
+          className="block rounded-2xl bg-white p-4 shadow-sm active:bg-stone-50"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate font-semibold">{name}</p>
+              {subtitle && subtitle !== name && (
+                <p className="truncate text-sm text-stone-600">{subtitle}</p>
+              )}
+              <p className="mt-1 text-sm text-stone-500">
+                {formatDateRange(gig.gig_services.map((s) => s.service_date))}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <StatusBadge status={statusOf(gig)} played={isPlayed(gig, gig.gig_services, today)} />
+                {(r.realHourlyRate !== null || v) && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium tabular-nums text-stone-600">
+                    {v && (
+                      <span
+                        aria-label={v.verdict}
+                        className={`h-2.5 w-2.5 rounded-full ${v.verdict === "green" ? "bg-emerald-500" : v.verdict === "yellow" ? "bg-amber-400" : "bg-red-500"}`}
+                      />
+                    )}
+                    {r.realHourlyRate !== null && `${formatMoney(r.realHourlyRate)}/hr`}
+                  </span>
+                )}
+                {gig.is_union && <span className="text-xs text-stone-500">Union</span>}
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <p
+                className={`text-lg font-bold tabular-nums ${r.realTakeHome < 0 ? "text-red-700" : "text-indigo-700"}`}
+              >
+                {formatMoney(r.realTakeHome)}
+              </p>
+              <p className="text-xs text-stone-500 tabular-nums">of {formatMoney(r.totalPay)} pay</p>
+            </div>
+          </div>
+        </Link>
+      </li>
+    );
+  };
 
   return (
     <main className="mx-auto max-w-md px-4 pb-28 pt-6">
@@ -103,64 +167,17 @@ export default async function Home({
       ) : !shown.length ? (
         <p className="mt-10 text-center text-stone-500">No {STATUS_LABEL[filter as GigStatus].toLowerCase()} gigs.</p>
       ) : (
-        <ul className="mt-4 space-y-3">
-          {shown.map((gig) => {
-            const r = resultForSavedGig(gig, gig.gig_services, settings);
-            const client = gig.client_id ? (clientsById.get(gig.client_id) ?? null) : null;
-            const name = gigName(gig, client?.name, gig.gig_services);
-            // Under the name: the client (when the name is the gig's own title), else the venue.
-            const subtitle = client && name !== client.name ? client.name : gig.venue_name || gig.venue_address;
-            const v = verdictFor(
-              r,
-              gig.gig_services.map((s) => s.service_date),
-              client,
-              rel,
-            );
-            return (
-              <li key={gig.id}>
-                <Link
-                  href={`/gigs/${gig.id}`}
-                  className="block rounded-2xl bg-white p-4 shadow-sm active:bg-stone-50"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold">{name}</p>
-                      {subtitle && subtitle !== name && (
-                        <p className="truncate text-sm text-stone-600">{subtitle}</p>
-                      )}
-                      <p className="mt-1 text-sm text-stone-500">
-                        {formatDateRange(gig.gig_services.map((s) => s.service_date))}
-                      </p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <StatusBadge status={statusOf(gig)} played={isPlayed(gig, gig.gig_services, today)} />
-                        {(r.realHourlyRate !== null || v) && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium tabular-nums text-stone-600">
-                            {v && (
-                              <span
-                                aria-label={v.verdict}
-                                className={`h-2.5 w-2.5 rounded-full ${v.verdict === "green" ? "bg-emerald-500" : v.verdict === "yellow" ? "bg-amber-400" : "bg-red-500"}`}
-                              />
-                            )}
-                            {r.realHourlyRate !== null && `${formatMoney(r.realHourlyRate)}/hr`}
-                          </span>
-                        )}
-                        {gig.is_union && <span className="text-xs text-stone-500">Union</span>}
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p
-                        className={`text-lg font-bold tabular-nums ${r.realTakeHome < 0 ? "text-red-700" : "text-indigo-700"}`}
-                      >
-                        {formatMoney(r.realTakeHome)}
-                      </p>
-                      <p className="text-xs text-stone-500 tabular-nums">of {formatMoney(r.totalPay)} pay</p>
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          {groups.map(
+            (group) =>
+              group.gigs.length > 0 && (
+                <section key={group.label} className="mt-5">
+                  <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">{group.label}</h2>
+                  <ul className="space-y-3">{group.gigs.map(renderGig)}</ul>
+                </section>
+              ),
+          )}
+        </>
       )}
 
       <Tour start={!result.tourDone || tour === "1"} hasGigs={all.length > 0} replay={tour === "1"} />
