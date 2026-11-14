@@ -334,7 +334,9 @@ export async function createGig(input: GigInput): Promise<{ error: string } | vo
 
   await rememberTerms(supabase, clientId, input, v.fields);
   revalidatePath("/", "layout");
-  redirect(`/?saved=${gig.id}`);
+  // Choosing to book it (not logging a gig already played) earns a celebration.
+  const booked = v.status === "taken" && !input.alreadyPlayed;
+  redirect(`/?saved=${gig.id}${booked ? "&booked=1" : ""}`);
 }
 
 /**
@@ -384,5 +386,6 @@ export async function updateGig(id: string, input: GigInput): Promise<{ error: s
 
   await rememberTerms(supabase, clientId, input, v.fields);
   revalidatePath("/", "layout");
-  redirect(`/gigs/${id}?updated=1`);
+  const booked = existing.status !== "taken" && v.status === "taken" && !input.alreadyPlayed;
+  redirect(`/gigs/${id}?updated=1${booked ? "&booked=1" : ""}`);
 }

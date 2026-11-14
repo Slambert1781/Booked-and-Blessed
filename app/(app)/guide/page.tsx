@@ -178,6 +178,10 @@ const SECTIONS: Section[] = [
         <li>
           Once a booked gig&apos;s dates have passed, it&apos;s labelled <strong>Played</strong>.
         </li>
+        <li>
+          Each time you book a gig, a <strong>Gig booked!</strong> badge pops up. Tap anywhere to close it. You can
+          switch it off for this device, or preview it, under <strong>Celebrations</strong> in your profile.
+        </li>
       </ul>
     ),
   },

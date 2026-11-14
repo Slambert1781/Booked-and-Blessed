@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getProfile } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/types";
+import { CelebrationSettings } from "@/components/celebration/CelebrationSettings";
 import { ProfileForm } from "./ProfileForm";
 
 export default async function ProfilePage() {
@@ -29,6 +30,9 @@ export default async function ProfilePage() {
         email={result.email}
         avatarUrl={result.avatarUrl}
       />
+      <div className="mt-10 border-t border-stone-200 pt-6">
+        <CelebrationSettings />
+      </div>
     </main>
   );
 }

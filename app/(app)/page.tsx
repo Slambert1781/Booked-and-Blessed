@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatDateRange, formatMoney } from "@/lib/format";
+import { CelebrateOnMount } from "@/components/celebration/CelebrationProvider";
 import { SavedBanner } from "@/components/SavedBanner";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Tour } from "@/components/Tour";
@@ -31,9 +32,9 @@ type Filter = "all" | GigStatus;
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; tour?: string; saved?: string }>;
+  searchParams: Promise<{ status?: string; tour?: string; saved?: string; booked?: string }>;
 }) {
-  const { status: requested, tour, saved } = await searchParams;
+  const { status: requested, tour, saved, booked } = await searchParams;
   const filter: Filter = GIG_STATUSES.includes(requested as GigStatus) ? (requested as GigStatus) : "all";
 
   const result = await getProfile();
@@ -128,6 +129,7 @@ export default async function Home({
     <main className="mx-auto max-w-md px-4 pb-28 pt-6">
       <h1 className="text-2xl font-semibold">Your gigs</h1>
 
+      {savedGig && booked === "1" && <CelebrateOnMount message="Gig booked!" />}
       {savedGig && (
         <SavedBanner
           key={savedGig.id}

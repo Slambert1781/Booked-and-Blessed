@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/AppNav";
+import { CelebrationProvider } from "@/components/celebration/CelebrationProvider";
 import { Avatar } from "@/components/Avatar";
 import { MobileDrawer } from "@/components/MobileDrawer";
 import { ProfileTile } from "@/components/ProfileTile";
@@ -11,7 +12,7 @@ import { isProfileComplete } from "@/lib/types";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const me = await getProfile();
   if (!me) redirect("/sign-in");
-  if (!isProfileComplete(me.profile)) return children;
+  if (!isProfileComplete(me.profile)) return <CelebrationProvider>{children}</CelebrationProvider>;
 
   const panel = (
     <div className="space-y-4">
@@ -21,6 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   );
 
   return (
+    <CelebrationProvider>
     <div className="lg:flex">
       <MobileDrawer avatar={<Avatar url={me.avatarUrl} name={me.name} email={me.email} size={40} />}>{panel}</MobileDrawer>
       <aside className="hidden lg:sticky lg:top-0 lg:block lg:h-dvh lg:w-80 lg:shrink-0 lg:overflow-y-auto lg:border-r lg:border-stone-200 lg:px-5 lg:py-6">
@@ -29,5 +31,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </aside>
       <div className="min-w-0 flex-1">{children}</div>
     </div>
+    </CelebrationProvider>
   );
 }

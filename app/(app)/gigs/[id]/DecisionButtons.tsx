@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useCelebration } from "@/components/celebration/CelebrationProvider";
 import { DecisionPicker } from "@/components/DecisionPicker";
 import type { GigStatus } from "@/lib/gigs";
 import { setGigStatus } from "./actions";
@@ -18,6 +19,7 @@ export function DecisionButtons({ gigId, status }: { gigId: string; status: GigS
   const [error, setError] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState(false);
   const [pending, startTransition] = useTransition();
+  const { celebrateChange } = useCelebration();
   const changed = choice !== saved;
 
   function save() {
@@ -28,6 +30,7 @@ export function DecisionButtons({ gigId, status }: { gigId: string; status: GigS
         setError(r.error);
         return;
       }
+      celebrateChange("Gig booked!", { previousStatus: saved, nextStatus: choice });
       setSaved(choice);
       setJustSaved(true);
     });

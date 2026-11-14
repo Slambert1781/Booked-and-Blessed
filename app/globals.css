@@ -47,3 +47,29 @@ body {
   color: var(--color-indigo-700);
   text-decoration: underline;
 }
+
+/* Celebration badge: CSS-only animation. Bounce in (~350 ms), sparkles
+   twinkle, the emoji wiggles once. Reduce Motion: none of it. */
+@keyframes celebration-pop {
+  0% { transform: scale(0.55); opacity: 0; }
+  70% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes celebration-twinkle {
+  0%, 100% { transform: scale(0.6) rotate(0deg); opacity: 0.35; }
+  50% { transform: scale(1.15) rotate(20deg); opacity: 1; }
+}
+@keyframes celebration-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-9deg); }
+  60% { transform: rotate(7deg); }
+  85% { transform: rotate(-3deg); }
+}
+.celebration-card { animation: celebration-pop 350ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.celebration-sparkle { animation: celebration-twinkle 1.2s ease-in-out infinite; }
+.celebration-emoji { animation: celebration-wiggle 700ms ease-in-out 380ms 1 both; transform-origin: 50% 60%; }
+@media (prefers-reduced-motion: reduce) {
+  .celebration-card,
+  .celebration-sparkle,
+  .celebration-emoji { animation: none; }
+}

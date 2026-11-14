@@ -20,6 +20,7 @@ import { loadGig } from "@/lib/loadGig";
 import { TIER_LABEL } from "@/lib/relationships";
 import { getProfile } from "@/lib/profile";
 import { num } from "@/lib/types";
+import { CelebrateOnMount } from "@/components/celebration/CelebrationProvider";
 import { DeleteGigButton } from "@/components/DeleteGigButton";
 import { DecisionButtons } from "./DecisionButtons";
 
@@ -28,10 +29,10 @@ export default async function GigResultPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ updated?: string }>;
+  searchParams: Promise<{ updated?: string; booked?: string }>;
 }) {
   const { id } = await params;
-  const { updated } = await searchParams;
+  const { updated, booked } = await searchParams;
   const [loaded, me] = await Promise.all([loadGig(id), getProfile()]);
   if (!loaded) notFound();
   const { gig, services } = loaded;
@@ -101,6 +102,7 @@ export default async function GigResultPage({
         </Link>
       )}
 
+      {updated && booked === "1" && <CelebrateOnMount message="Gig booked!" />}
       {updated && (
         <p role="status" className="mt-4 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white">
           ✓ Changes saved
