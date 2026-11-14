@@ -129,7 +129,7 @@ export default async function Home({
     <main className="mx-auto max-w-md px-4 pb-28 pt-6">
       <h1 className="text-2xl font-semibold">Your gigs</h1>
 
-      {savedGig && booked === "1" && <CelebrateOnMount message="Gig booked!" />}
+      {savedGig && booked === "1" && <CelebrateOnMount message="Get that money!" />}
       {savedGig && (
         <SavedBanner
           key={savedGig.id}

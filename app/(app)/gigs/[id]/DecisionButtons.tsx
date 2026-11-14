@@ -30,7 +30,7 @@ export function DecisionButtons({ gigId, status }: { gigId: string; status: GigS
         setError(r.error);
         return;
       }
-      celebrateChange("Gig booked!", { previousStatus: saved, nextStatus: choice });
+      celebrateChange("Get that money!", { previousStatus: saved, nextStatus: choice });
       setSaved(choice);
       setJustSaved(true);
     });

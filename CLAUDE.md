@@ -90,22 +90,22 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
 
 ## Celebration badge
 
-- A centred "Gig booked!" pop-up each time the user chooses to book a gig:
+- A centred "Get that money!" pop-up each time the user chooses to book a gig:
   Book it + Save decision on a gig's page, Save and book it on a new gig, or
   changing a gig to booked in Edit (not when logging a gig already played).
   Changes from another device or user (live sync, none yet) never pop one.
 - `lib/celebrate.ts` (pure, no app imports, unit-tested): `shouldCelebrate`,
   `newlyReachedFull` (a goal newly at 100%; not used yet: no goals in this
   app), the timing, and reading the setting.
-- `components/celebration/`: `CelebrationBadge` (the drawing: shield, purple-
-  pink gradient, ⭐, sparkles; aria-hidden; swap it for another design or an
+- `components/celebration/`: `CelebrationBadge` (the drawing: shield with a
+  gradient from the app's purple (indigo) to pink, a stack of money (SVG), sparkles; aria-hidden; swap it for another design or an
   animation file), `CelebrationProvider` (the pop-up, `role="status"`,
   `aria-live="polite"`, message as real text; `CelebrateOnMount` for pages
   reached after booking), `CelebrationSettings` (Profile: on/off for this
   device in localStorage, default on, and Preview the badge, which shows even
   when off).
 - CSS only (globals.css): bounces in over ~350 ms, sparkles twinkle, the
-  emoji wiggles once; up for 4.2 s with a 300 ms fade; tap to dismiss.
+  money stack wiggles once; up for 4.2 s with a 300 ms fade; tap to dismiss.
   prefers-reduced-motion: no movement, shown still for 2.5 s. The badge
   adapts to light and dark mode (the rest of the app is light only).
 

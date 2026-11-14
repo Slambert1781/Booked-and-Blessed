@@ -21,7 +21,7 @@ export function CelebrationSettings() {
           onChange={(e) => setEnabled(e.target.checked)}
         />
       </label>
-      <button type="button" className="btn-secondary w-full py-2 text-sm" onClick={() => celebrate("Gig booked!", { preview: true })}>
+      <button type="button" className="btn-secondary w-full py-2 text-sm" onClick={() => celebrate("Get that money!", { preview: true })}>
         Preview the badge
       </button>
     </section>

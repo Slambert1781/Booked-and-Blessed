@@ -102,7 +102,7 @@ export default async function GigResultPage({
         </Link>
       )}
 
-      {updated && booked === "1" && <CelebrateOnMount message="Gig booked!" />}
+      {updated && booked === "1" && <CelebrateOnMount message="Get that money!" />}
       {updated && (
         <p role="status" className="mt-4 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white">
           ✓ Changes saved
