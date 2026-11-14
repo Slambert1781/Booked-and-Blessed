@@ -98,7 +98,7 @@ of truth for how Version 1.0 behaves. Keep it in step with the code.
   `newlyReachedFull` (a goal newly at 100%; not used yet: no goals in this
   app), the timing, and reading the setting.
 - `components/celebration/`: `CelebrationBadge` (the drawing: shield with a
-  gradient from the app's purple (indigo) to pink, a stack of money (SVG), sparkles; aria-hidden; swap it for another design or an
+  gradient from the app's purple (indigo) to pink, a stack of money (SVG), nine glowing yellow sparkles; aria-hidden; swap it for another design or an
   animation file), `CelebrationProvider` (the pop-up, `role="status"`,
   `aria-live="polite"`, message as real text; `CelebrateOnMount` for pages
   reached after booking), `CelebrationSettings` (Profile: on/off for this

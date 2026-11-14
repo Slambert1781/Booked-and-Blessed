@@ -1,6 +1,6 @@
 // The celebration badge drawing: a rounded shield with a gradient from the
 // app's purple (indigo) to pink, a
-// stack of money and a few sparkles. Drawn in code (SVG + CSS), no animation
+// stack of money and twinkling yellow sparkles. Drawn in code (SVG + CSS), no animation
 // files. Decorative only (aria-hidden): the message beside it is the real
 // text.
 //
@@ -8,10 +8,15 @@
 // component; the pop-up only relies on it rendering a square ~160px element.
 
 const SPARKLES = [
-  { top: "4%", left: "10%", size: 18, delay: "0ms" },
-  { top: "12%", left: "84%", size: 14, delay: "220ms" },
-  { top: "70%", left: "-2%", size: 12, delay: "420ms" },
-  { top: "78%", left: "90%", size: 16, delay: "140ms" },
+  { top: "0%", left: "8%", size: 22, delay: "0ms" },
+  { top: "8%", left: "86%", size: 18, delay: "350ms" },
+  { top: "-6%", left: "52%", size: 12, delay: "700ms" },
+  { top: "36%", left: "-10%", size: 14, delay: "200ms" },
+  { top: "40%", left: "100%", size: 12, delay: "550ms" },
+  { top: "68%", left: "-4%", size: 18, delay: "450ms" },
+  { top: "76%", left: "92%", size: 20, delay: "100ms" },
+  { top: "96%", left: "24%", size: 11, delay: "800ms" },
+  { top: "94%", left: "72%", size: 13, delay: "250ms" },
 ];
 
 // Purple to pink. The purple is the app's own (Tailwind's indigo, as on its
@@ -92,7 +97,7 @@ export function CelebrationBadge() {
         <svg
           key={i}
           viewBox="0 0 24 24"
-          className="celebration-sparkle absolute fill-amber-300 dark:fill-amber-200"
+          className="celebration-sparkle absolute fill-yellow-300 dark:fill-yellow-200"
           style={{ top: s.top, left: s.left, width: s.size, height: s.size, animationDelay: s.delay }}
         >
           <path d="M12 0 C13 7 17 11 24 12 C17 13 13 17 12 24 C11 17 7 13 0 12 C7 11 11 7 12 0 Z" />
