@@ -7,15 +7,39 @@ import { Avatar } from "./Avatar";
 
 const SIZE = 400; // stored photos are square, 400x400
 
+// Load a photo the way the browser shows it. An <img> applies the phone's
+// "which way up" (EXIF) flag, and its natural size is the upright size, in
+// every browser. (createImageBitmap on iPhone Safari could report the
+// unrotated size, so only part of the photo was copied: half a picture.)
+function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("load"));
+    };
+    img.src = url;
+  });
+}
+
 // Crop to a centred square and shrink, so phone photos upload quickly.
 async function toSquareJpeg(file: File): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
-  const side = Math.min(bitmap.width, bitmap.height);
+  const img = await loadImage(file);
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  if (!w || !h) throw new Error("empty");
+  const side = Math.min(w, h);
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = SIZE;
-  canvas
-    .getContext("2d")!
-    .drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, SIZE, SIZE);
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#e7e5e4"; // never leave a see-through gap (it saves as a blank patch)
+  ctx.fillRect(0, 0, SIZE, SIZE);
+  ctx.drawImage(img, (w - side) / 2, (h - side) / 2, side, side, 0, 0, SIZE, SIZE);
   return new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("encode"))), "image/jpeg", 0.85),
   );
